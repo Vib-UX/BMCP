@@ -1,0 +1,29 @@
+{
+  "name": "@bmcp/bitcoin-api",
+  "version": "1.0.0",
+  "description": "BMCP Bitcoin API - construct PSBTs and broadcast signed Bitcoin transactions",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "lint": "eslint . --ext .ts",
+    "format": "prettier --write \"**/*.ts\"",
+    "dev": "nodemon"
+  },
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/express": "^5.0.5",
+    "@types/node": "^22.19.1",
+    "nodemon": "^3.1.11",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "bip32": "^5.0.0",
+    "bitcoinjs-lib": "^6.1.7",
+    "express": "^5.1.0",
+    "tiny-secp256k1": "^2.2.4"
+  }
+}
