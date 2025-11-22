@@ -68,6 +68,22 @@ BMCP (Bitcoin Multichain Protocol) enables **x402 cross-chain messaging from Lig
 
 **Total Time**: ~15-20 minutes (Bitcoin finality dominates)
 
+## Monorepo Structure
+
+BMCP is organized as a monorepo with the following packages:
+
+```
+BMCP/
+├── packages/
+│   ├── sdk/          # @bmcp/sdk - Core types and utilities
+│   ├── client/       # @bmcp/client - Bitcoin CCIP Client
+│   ├── relayer/      # @bmcp/relayer - CRE Relayer
+│   └── contracts/    # @bmcp/contracts - Solidity contracts
+├── examples/         # Usage examples
+├── docs/            # Documentation
+└── tests/           # Integration tests
+```
+
 ## Installation
 
 ```bash
@@ -75,11 +91,8 @@ BMCP (Bitcoin Multichain Protocol) enables **x402 cross-chain messaging from Lig
 git clone https://github.com/yourusername/BMCP.git
 cd BMCP
 
-# Install dependencies
+# Install all dependencies (uses npm workspaces)
 npm install
-
-# Install contract dependencies
-cd contracts && npm install && cd ..
 
 # Copy environment template
 cp .env.example .env
@@ -119,7 +132,7 @@ CRE_POLL_INTERVAL_MS=30000
 ### 1. Simple Cross-Chain Message
 
 ```typescript
-import { BitcoinCCIPClient, CHAIN_SELECTORS } from 'bmcp';
+import { BitcoinCCIPClient, CHAIN_SELECTORS } from '@bmcp/client';
 import { ethers } from 'ethers';
 
 // Initialize client

@@ -10,8 +10,8 @@ import {
   MessageReceipt,
   PROTOCOL_CONSTANTS,
   TokenAmount,
-} from '../types';
-import { MessageEncoder } from '../encoding/MessageEncoder';
+  MessageEncoder,
+} from '@bmcp/sdk';
 import axios, { AxiosInstance } from 'axios';
 import { ethers } from 'ethers';
 

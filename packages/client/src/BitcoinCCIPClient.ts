@@ -10,8 +10,8 @@ import {
   MessageReceipt,
   PROTOCOL_CONSTANTS,
   CHAIN_SELECTORS,
-} from '../types';
-import { MessageEncoder } from '../encoding/MessageEncoder';
+  MessageEncoder,
+} from '@bmcp/sdk';
 import axios, { AxiosInstance } from 'axios';
 
 export class BitcoinCCIPClient {

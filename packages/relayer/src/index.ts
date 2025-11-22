@@ -1,10 +1,11 @@
+#!/usr/bin/env node
 /**
  * CRE Relayer Entry Point
  * Start the Bitcoin to EVM cross-chain relayer
  */
 
 import { CRERelayer } from './CRERelayer';
-import { RelayerConfig } from '../types';
+import { RelayerConfig } from '@bmcp/sdk';
 import * as dotenv from 'dotenv';
 
 // Load environment variables
@@ -80,4 +81,3 @@ if (require.main === module) {
 }
 
 export { CRERelayer, createRelayerConfig };
-

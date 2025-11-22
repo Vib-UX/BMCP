@@ -1,5 +1,5 @@
 {
-  "name": "bmcp-contracts",
+  "name": "@bmcp/contracts",
   "version": "1.0.0",
   "description": "BMCP Smart Contracts for EVM Chains",
   "scripts": {
@@ -7,8 +7,17 @@
     "test": "hardhat test",
     "deploy": "hardhat run scripts/deploy.ts",
     "deploy:sepolia": "hardhat run scripts/deploy.ts --network baseSepolia",
-    "deploy:base": "hardhat run scripts/deploy.ts --network base"
+    "deploy:base": "hardhat run scripts/deploy.ts --network base",
+    "clean": "hardhat clean && rm -rf cache artifacts"
   },
+  "keywords": [
+    "bitcoin",
+    "ccip",
+    "solidity",
+    "contracts"
+  ],
+  "author": "",
+  "license": "MIT",
   "dependencies": {
     "@chainlink/contracts-ccip": "^1.4.0",
     "@openzeppelin/contracts": "^5.0.1"
@@ -19,4 +28,3 @@
     "dotenv": "^16.4.5"
   }
 }
-

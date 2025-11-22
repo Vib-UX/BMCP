@@ -1,54 +1,41 @@
 {
-  "name": "bmcp",
+  "name": "bmcp-monorepo",
   "version": "1.0.0",
   "description": "Bitcoin Multichain Protocol - x402 cross-chain messaging from Bitcoin to EVM chains via CCIP",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
-    "build": "tsc",
-    "test": "jest",
-    "test:watch": "jest --watch",
-    "lint": "eslint src --ext .ts",
-    "format": "prettier --write \"src/**/*.ts\"",
-    "compile:contracts": "cd contracts && npx hardhat compile",
-    "deploy:contracts": "cd contracts && npx hardhat run scripts/deploy.ts",
-    "start:relayer": "node dist/relayer/index.js",
-    "dev": "ts-node src/index.ts"
+    "build": "npm run build --workspaces",
+    "test": "npm run test --workspaces",
+    "lint": "npm run lint --workspaces",
+    "format": "prettier --write \"packages/**/src/**/*.ts\" \"packages/**/contracts/**/*.sol\"",
+    "clean": "npm run clean --workspaces && rm -rf node_modules",
+    "compile:contracts": "npm run compile -w @bmcp/contracts",
+    "deploy:contracts": "npm run deploy -w @bmcp/contracts",
+    "start:relayer": "npm run start -w @bmcp/relayer"
   },
   "keywords": [
     "bitcoin",
     "ccip",
     "cross-chain",
     "chainlink",
-    "op_return",
+    "monorepo",
     "evm",
     "multichain"
   ],
   "author": "",
   "license": "MIT",
-  "dependencies": {
-    "@chainlink/contracts-ccip": "^1.4.0",
-    "bitcoinjs-lib": "^6.1.5",
-    "ethers": "^6.11.1",
-    "dotenv": "^16.4.5",
-    "axios": "^1.6.7"
-  },
   "devDependencies": {
-    "@types/node": "^20.11.19",
     "@typescript-eslint/eslint-plugin": "^7.0.2",
     "@typescript-eslint/parser": "^7.0.2",
     "eslint": "^8.56.0",
     "prettier": "^3.2.5",
-    "typescript": "^5.3.3",
-    "jest": "^29.7.0",
-    "@types/jest": "^29.5.12",
-    "ts-jest": "^29.1.2",
-    "ts-node": "^10.9.2",
-    "hardhat": "^2.20.1",
-    "@nomicfoundation/hardhat-toolbox": "^4.0.0"
+    "typescript": "^5.3.3"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
   }
 }
-

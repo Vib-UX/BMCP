@@ -3,7 +3,7 @@
  * Demonstrates how to send a cross-chain message from Bitcoin to Base
  */
 
-import { BitcoinCCIPClient, CHAIN_SELECTORS } from '../src';
+import { BitcoinCCIPClient, CHAIN_SELECTORS } from '@bmcp/client';
 import { ethers } from 'ethers';
 import * as dotenv from 'dotenv';
 

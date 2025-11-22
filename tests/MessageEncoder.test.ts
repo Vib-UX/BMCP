@@ -2,8 +2,7 @@
  * Tests for MessageEncoder
  */
 
-import { MessageEncoder } from '../src/encoding/MessageEncoder';
-import { BitcoinCCIPMessage, PROTOCOL_CONSTANTS, CHAIN_SELECTORS } from '../src/types';
+import { MessageEncoder, BitcoinCCIPMessage, PROTOCOL_CONSTANTS, CHAIN_SELECTORS } from '@bmcp/sdk';
 
 describe('MessageEncoder', () => {
   const validMessage: BitcoinCCIPMessage = {

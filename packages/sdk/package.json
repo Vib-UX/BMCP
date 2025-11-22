@@ -1,0 +1,26 @@
+{
+  "name": "@bmcp/sdk",
+  "version": "1.0.0",
+  "description": "BMCP SDK - Shared types and utilities for Bitcoin Multichain Protocol",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "lint": "eslint . --ext .ts",
+    "format": "prettier --write \"**/*.ts\""
+  },
+  "keywords": [
+    "bitcoin",
+    "ccip",
+    "sdk",
+    "types"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {},
+  "devDependencies": {
+    "typescript": "^5.3.3"
+  }
+}
+
