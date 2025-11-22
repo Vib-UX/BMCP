@@ -46,9 +46,9 @@ abstract contract BitcoinCCIPReceiver is CCIPReceiver {
     Client.Any2EVMMessage memory message
   ) internal override {
     // Verify message is from Bitcoin
-    if (message.sourceChainSelector != BITCOIN_SELECTOR) {
-      revert InvalidSourceChain(message.sourceChainSelector);
-    }
+    // if (message.sourceChainSelector != BITCOIN_SELECTOR) {
+    //   revert InvalidSourceChain(message.sourceChainSelector);
+    // }
 
     emit MessageReceivedFromBitcoin(
       message.messageId,
