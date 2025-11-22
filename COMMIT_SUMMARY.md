@@ -33,8 +33,8 @@ $ git ls-files | grep "\.env.example"
 .env.example
 
 # No API keys in tracked files ✅
-$ git grep -n "t-6921f4822a9f4bf66c8503de" -- ':(exclude).env'
-None found ✅
+$ git grep -n "TATUM_API_KEY" -- ':(exclude).env'
+# Only references to the environment variable name, not actual keys ✅
 ```
 
 ---
