@@ -15,6 +15,7 @@
     "build": "npm run build --workspaces",
     "clean": "npm run clean --workspaces",
     "dev:bitcoin-api": "cd packages/bitcoin-api && npm run dev",
+    "dev:relayer-api": "cd packages/relayer-api && npm run dev",
     "example:bitcoin": "tsx examples/bitcoin-encoder-usage.ts",
     "example:evm": "tsx examples/evm-encoder-usage.ts",
     "example:api": "tsx examples/bitcoin-api-integration.ts",
