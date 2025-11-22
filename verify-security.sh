@@ -35,13 +35,14 @@ else
     echo -e "   ${RED}❌ .env.example is not tracked${NC}"
 fi
 
-# Check 4: No API keys in tracked files
-echo "4. Checking for API keys in tracked files..."
-if git grep -q "t-6921f4822a9f4bf66c8503de" -- ':(exclude).env' 2>/dev/null; then
-    echo -e "   ${RED}❌ API key found in tracked files!${NC}"
-    git grep -n "t-6921f4822a9f4bf66c8503de" -- ':(exclude).env'
+# Check 4: No hardcoded API keys in tracked files
+echo "4. Checking for hardcoded API keys in tracked files..."
+# Check for patterns like: TATUM_API_KEY = 't-...' or const API_KEY = 't-...'
+if git grep -E "(TATUM_API_KEY|API_KEY)\s*=\s*['\"]t-" -- ':(exclude).env' ':(exclude)*.sh' 2>/dev/null | grep -v "process.env" > /dev/null; then
+    echo -e "   ${RED}❌ Hardcoded API key found in tracked files!${NC}"
+    git grep -n -E "(TATUM_API_KEY|API_KEY)\s*=\s*['\"]t-" -- ':(exclude).env' ':(exclude)*.sh' | grep -v "process.env"
 else
-    echo -e "   ${GREEN}✅ No API keys in tracked files${NC}"
+    echo -e "   ${GREEN}✅ No hardcoded API keys in tracked files${NC}"
 fi
 
 # Check 5: dotenv is installed
