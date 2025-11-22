@@ -21,9 +21,8 @@
     "typescript": "^5.9.3"
   },
   "dependencies": {
-    "bip32": "^5.0.0",
+    "axios": "^1.13.2",
     "bitcoinjs-lib": "^6.1.7",
-    "express": "^5.1.0",
-    "tiny-secp256k1": "^2.2.4"
+    "express": "^5.1.0"
   }
 }

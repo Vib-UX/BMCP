@@ -1,0 +1,11 @@
+{
+  "schedule": "*/30 * * * * *",
+  "myAddress": "0x1234567890123456789012345678901234567890",
+  "evms": [
+    {
+      "contractAddress": "0x2BaE8224110482eC6dDF12faf359A35362d43573",
+      "chainSelectorName": "ethereum-testnet-sepolia",
+      "gasLimit": "1000000"
+    }
+  ]
+}

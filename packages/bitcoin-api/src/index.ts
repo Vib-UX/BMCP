@@ -1,7 +1,6 @@
 import express, { Request, Response } from 'express';
 import * as bitcoin from 'bitcoinjs-lib';
-import * as bip32 from 'bip32';
-import * as ecc from 'tiny-secp256k1';
+import axios, { AxiosError } from 'axios';
 
 const network = {
   ...bitcoin.networks.testnet,
@@ -14,69 +13,120 @@ const network = {
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-const bip32Instance = bip32.BIP32Factory(ecc);
-const accountPath = `m/84'/1'/0'`
-
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-app.get('/:vpub', (req: Request, res: Response) => {
-  const vpub = req.params.vpub;
+const varintSize = (n: number) => {
+  if (n < 0xfd) return 1;
+  if (n <= 0xffff) return 3;
+  if (n <= 0xffffffff) return 5;
+  return 9;
+}
 
+const estimateTxSize = (inputCount: number, outputCount: number, opReturnBytes: number) => {
+  const overhead = 10.5;
+  const inputSize = inputCount * 68;
+  const p2wpkhOutputSize = 31;
+  const opReturnOutputSize = 8 + 1 + 1 + varintSize(opReturnBytes) + opReturnBytes;
+  const totalSize = overhead + inputSize + (outputCount * p2wpkhOutputSize) + opReturnOutputSize;
+  return Math.ceil(totalSize)
+}
+
+app.post('/psbt', async (req: Request, res: Response) => {
   try {
-    const accountNode = bip32Instance.fromBase58(vpub, network);
-    const depositNode = accountNode.derive(0);
-    const changeNode = accountNode.derive(1)
-
-    const addresses = new Set<{
-      index: number,
-      address: string,
-      isChange: boolean,
-      path: string,
-    }>();
-
-    for (let index = 0; index < 10; index++) {
-      const depositAddressNode = depositNode.derive(index);
-      const { address: depositAddress } = bitcoin.payments.p2wpkh({
-        pubkey: Buffer.from(depositAddressNode.publicKey),
-        network,
-      });
-      if (!depositAddress) {
-        throw new Error(`Could not derive deposit address at index ${index}`)
-      }
-      addresses.add({
-        index,
-        address: depositAddress,
-        isChange: false,
-        path: `${accountPath}/0/${index}`,
-      });
-      const changeAddressNode = changeNode.derive(index);
-      const { address: changeAddress } = bitcoin.payments.p2wpkh({
-        pubkey: Buffer.from(changeAddressNode.publicKey),
-        network,
-      });
-      if (!changeAddress) {
-        throw new Error(`Could not derive change address at index ${index}`)
-      }
-      addresses.add({
-        index,
-        address: changeAddress,
-        isChange: true,
-        path: `${accountPath}/1/${index}`,
+    const { address, sendBmcpData } = req.body;
+    if (!address || typeof address !== 'string') {
+      throw new Error('invalid address')
+    }
+    if (!sendBmcpData || typeof sendBmcpData !== 'string' || !sendBmcpData.startsWith('0x')) {
+      throw new Error('invalid sendBmcpData')
+    }
+    const utxos = await axios.get(`https://mempool.space/testnet4/api/address/${address}/utxo`).then(response => response.data as Array<{
+      txid: string,
+      vout: number,
+      value: number
+    }>);
+    if (!utxos.length) {
+      return res.status(404).send({
+        success: true,
+        message: 'No UTXOs found',
+        psbt: null
+      })
+    }
+    const txSize = estimateTxSize(
+      utxos.length,
+      1,
+      sendBmcpData.length / 2
+    );
+    const feeRate = await axios.get(`https://mempool.space/testnet4/api/v1/fees/recommended`).then(response => response.data?.fastestFee ? Number(response.data.fastestFee) : 1);
+    const fee = Math.ceil(txSize * feeRate);
+    const totalInput = utxos.reduce((total, current) => {
+      return total + Number(current.value)
+    }, 0)
+    const changeAmount = totalInput - fee;
+    const dustLimit = 546;
+    if (changeAmount < dustLimit) {
+      throw new Error(`Change amount ${changeAmount} is below dust limit. Need at least ${dustLimit} sats.`);
+    }
+    const psbt = new bitcoin.Psbt({ network })
+    for (const utxo of utxos) {
+      psbt.addInput({
+        hash: utxo.txid,
+        index: utxo.vout,
+        witnessUtxo: {
+          script: bitcoin.address.toOutputScript(address, network),
+          value: utxo.value,
+        },
       });
     }
-
-    res.send(`<pre>${JSON.stringify({
-      vpub,
-      addresses: Array.from(addresses.values()),
-    }, null, 2)}</pre>`);
-
+    const opReturnScript = bitcoin.script.compile([
+      bitcoin.opcodes.OP_RETURN,
+      Buffer.from(sendBmcpData.slice(2), 'hex')
+    ]);
+    psbt.addOutput({
+      script: opReturnScript,
+      value: 0,
+    });
+    psbt.addOutput({
+      address,
+      value: changeAmount
+    })
+    return res.status(200).send({
+      success: true,
+      message: `Found ${utxos.length} UTXOs totalling ${totalInput}, created transaction spending ${totalInput - changeAmount}`,
+      address,
+      totalInput,
+      sendBmcpData,
+      txSize,
+      changeAmount,
+      fee,
+      psbt: psbt.toHex(),
+      link: `https://mempool.space/testnet4/tx/preview#tx=${psbt.toHex()}`
+    })
   } catch (error) {
-    res.status(400).send(`<pre>Error: ${error}</pre>`);
+    const casted = error as Partial<AxiosError>;
+    if (casted?.response) {
+      const errorText = typeof casted.response.data === 'string'
+        ? casted.response.data
+        : JSON.stringify(casted.response.data);
+      return res.status(500).send({
+        success: false,
+        message: `HTTP ${casted.response.status}: ${errorText}`
+      })
+    } else if (casted.request) {
+      return res.status(500).send({
+        success: false,
+        message: `Network error: ${casted.message}`
+      })
+    } else {
+      return res.status(500).send({
+        success: false,
+        message: `Error: ${casted.message ?? JSON.stringify(casted)}`
+      })
+    }
   }
 });
 
-// Start server
 app.listen(PORT, () => {
   console.log(`🚀 Server is running on http://localhost:${PORT}`);
 });
