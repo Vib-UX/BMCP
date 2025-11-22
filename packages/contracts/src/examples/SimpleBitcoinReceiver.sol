@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import {BitcoinCCIPReceiver} from "../BitcoinCCIPReceiver.sol";
-import {Client} from "@chainlink/contracts-ccip/src/v0.8/ccip/libraries/Client.sol";
+import {Client} from "@chainlink/contracts-ccip/contracts/libraries/Client.sol";
 
 /**
  * @title SimpleBitcoinReceiver

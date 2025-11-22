@@ -1,12 +1,12 @@
-import { HardhatUserConfig } from "hardhat/config";
-import "@nomicfoundation/hardhat-toolbox";
-import * as dotenv from "dotenv";
+import hardhatIgnitionPlugin from '@nomicfoundation/hardhat-ignition';
+import hardhatKeystore from '@nomicfoundation/hardhat-keystore';
+import hardhatVerify from '@nomicfoundation/hardhat-verify';
+import { configVariable, defineConfig } from 'hardhat/config';
 
-dotenv.config();
-
-const config: HardhatUserConfig = {
+export default defineConfig({
+  plugins: [hardhatIgnitionPlugin, hardhatKeystore, hardhatVerify],
   solidity: {
-    version: "0.8.24",
+    version: '0.8.28',
     settings: {
       optimizer: {
         enabled: true,
@@ -14,28 +14,33 @@ const config: HardhatUserConfig = {
       },
     },
   },
+  paths: {
+    sources: './src',
+  },
   networks: {
-    hardhat: {
-      chainId: 31337,
+    hardhatMainnet: {
+      type: 'edr-simulated',
+      chainType: 'l1',
     },
-    baseSepolia: {
-      url: process.env.BASE_SEPOLIA_RPC_URL || "https://sepolia.base.org",
-      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
-      chainId: 84532,
+    hardhatOp: {
+      type: 'edr-simulated',
+      chainType: 'op',
     },
-    base: {
-      url: process.env.BASE_RPC_URL || "https://mainnet.base.org",
-      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
-      chainId: 8453,
-    },
-  },
-  etherscan: {
-    apiKey: {
-      baseSepolia: process.env.BASESCAN_API_KEY || "",
-      base: process.env.BASESCAN_API_KEY || "",
+    sepolia: {
+      type: 'http',
+      chainType: 'l1',
+      url: configVariable('SEPOLIA_RPC_URL'),
+      accounts: [configVariable('SEPOLIA_PRIVATE_KEY')],
     },
   },
-};
-
-export default config;
-
+  test: {
+    solidity: {
+      timeout: 40000,
+    },
+  },
+  verify: {
+    etherscan: {
+      apiKey: configVariable('ETHERSCAN_API_KEY'),
+    },
+  },
+});

@@ -5,10 +5,9 @@
   "scripts": {
     "compile": "hardhat compile",
     "test": "hardhat test",
-    "deploy": "hardhat run scripts/deploy.ts",
-    "deploy:sepolia": "hardhat run scripts/deploy.ts --network baseSepolia",
-    "deploy:base": "hardhat run scripts/deploy.ts --network base",
-    "clean": "hardhat clean && rm -rf cache artifacts"
+    "clean": "hardhat clean && rm -rf cache artifacts",
+    "deploy:sepolia": "hardhat ignition deploy --network sepolia --verify",
+    "deploy:local": "hardhat ignition deploy --network hardhatMainnet"
   },
   "keywords": [
     "bitcoin",
@@ -23,8 +22,13 @@
     "@openzeppelin/contracts": "^5.0.1"
   },
   "devDependencies": {
-    "@nomicfoundation/hardhat-toolbox": "^4.0.0",
-    "hardhat": "^2.20.1",
-    "dotenv": "^16.4.5"
-  }
+    "@nomicfoundation/hardhat-ignition": "^3.0.5",
+    "@nomicfoundation/hardhat-keystore": "^3.0.3",
+    "@nomicfoundation/hardhat-verify": "^3.0.7",
+    "@types/node": "^22.19.1",
+    "dotenv": "^16.4.5",
+    "hardhat": "^3.0.15",
+    "typescript": "~5.8.0"
+  },
+  "type": "module"
 }
