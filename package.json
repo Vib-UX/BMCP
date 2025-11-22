@@ -1,41 +1,44 @@
 {
-  "name": "bmcp-monorepo",
+  "name": "bmcp",
   "version": "1.0.0",
-  "description": "Bitcoin Multichain Protocol - x402 cross-chain messaging from Bitcoin to EVM chains via CCIP",
+  "description": "Bitcoin Multichain Protocol - Cross-chain messaging from Bitcoin to EVM chains",
   "private": true,
   "workspaces": [
     "packages/*"
   ],
   "scripts": {
+    "test": "npm run test:bitcoin && npm run test:evm && npm run test:integration",
+    "test:bitcoin": "tsx tests/integration/bitcoin-encoder.test.ts",
+    "test:evm": "tsx tests/integration/evm-encoder.test.ts",
+    "test:integration": "tsx tests/integration/full-flow.test.ts",
+    "test:all": "npm test",
     "build": "npm run build --workspaces",
-    "test": "npm run test --workspaces",
-    "lint": "npm run lint --workspaces",
-    "format": "prettier --write \"packages/**/src/**/*.ts\" \"packages/**/contracts/**/*.sol\"",
-    "clean": "npm run clean --workspaces && rm -rf node_modules",
-    "compile:contracts": "npm run compile -w @bmcp/contracts",
-    "deploy:contracts": "npm run deploy -w @bmcp/contracts",
-    "start:relayer": "npm run start -w @bmcp/relayer"
+    "clean": "npm run clean --workspaces",
+    "dev:bitcoin-api": "cd packages/bitcoin-api && npm run dev",
+    "example:bitcoin": "tsx examples/bitcoin-encoder-usage.ts",
+    "example:evm": "tsx examples/evm-encoder-usage.ts",
+    "example:api": "tsx examples/bitcoin-api-integration.ts",
+    "example:protocol": "tsx examples/protocol-detection.ts",
+    "example:scan-tx": "tsx examples/scan-bitcoin-tx.ts",
+    "example:monitor": "tsx examples/monitor-bitcoin-blocks.ts",
+    "example:decoder-flow": "tsx examples/bitcoin-api-decoder-flow.ts"
   },
   "keywords": [
     "bitcoin",
-    "ccip",
+    "ethereum",
     "cross-chain",
-    "chainlink",
-    "monorepo",
-    "evm",
-    "multichain"
+    "ccip",
+    "op_return"
   ],
   "author": "",
   "license": "MIT",
   "devDependencies": {
-    "@typescript-eslint/eslint-plugin": "^7.0.2",
-    "@typescript-eslint/parser": "^7.0.2",
-    "eslint": "^8.56.0",
-    "prettier": "^3.2.5",
+    "@types/node": "^20.11.19",
+    "tsx": "^4.7.0",
     "typescript": "^5.3.3"
   },
-  "engines": {
-    "node": ">=18.0.0",
-    "npm": ">=9.0.0"
+  "dependencies": {
+    "dotenv": "^17.2.3",
+    "ethers": "^6.15.0"
   }
 }
