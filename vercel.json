@@ -1,6 +1,6 @@
 {
   "framework": null,
-  "buildCommand": "npm run build:sdk && npm run build:dashboard",
-  "outputDirectory": "packages/dashboard/dist",
+  "buildCommand": "npm run build:sdk && npm run build:dashboard && cp -r packages/dashboard/dist ./dist",
+  "outputDirectory": "dist",
   "installCommand": "npm install"
 }
