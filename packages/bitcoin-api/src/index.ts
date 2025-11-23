@@ -13,6 +13,8 @@ const network = {
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+const TATUM_API_KEY = ''
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -198,6 +200,127 @@ app.get('/health', (req: Request, res: Response) => {
     protocolMagic: BMCP_PROTOCOL_MAGIC.toString('hex'),
     version: '1.0.0',
   });
+})
+
+app.get('/mempool', async (req: Request, res: Response) => {
+  try {
+    const mempoolTxHashSet = await axios.get(`https://mempool.space/testnet4/api/mempool/txids`).then(response => response.data as Array<string>).then(excludeTxs => new Set(excludeTxs));
+    if (!mempoolTxHashSet.size) {
+      return res.status(404).send({
+        success: true,
+        message: 'No mempool transactions found on mempool.space',
+        psbt: null
+      })
+    }
+    const tatumTxHashes = await axios.post(`https://bitcoin-testnet4.gateway.tatum.io/`, {
+      "jsonrpc": "2.0",
+      "method": "getrawmempool",
+      "params": [
+      ],
+      "id": 1
+    }, {
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'x-api-key': TATUM_API_KEY
+      }
+    }).then(response => response.data.result as Array<string>);
+    const missingTxHashes = tatumTxHashes.filter(txHash => !mempoolTxHashSet.has(txHash))
+    await delay(1100); // wait 1.1s to avoid ratelimit
+    const opReturns = new Set<{
+      txHash: string,
+      txHex: string,
+      voutIndex: number,
+      voutValue: number,
+      scriptPubKeyAsm: string,
+      opReturnHex: string
+    }>();
+    for (let i = 0; i < missingTxHashes.length; i += 3) {
+      const batch = missingTxHashes.slice(i, i + 3);
+      const txs = await Promise.all(batch.map(async (hash) => axios.post(`https://bitcoin-testnet4.gateway.tatum.io/`, {
+        "jsonrpc": "2.0",
+        "method": "getrawtransaction",
+        "params": [
+          hash,
+          true
+        ],
+        "id": 1
+      }, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'x-api-key': TATUM_API_KEY
+        }
+      }).then(response => response.data.result as {
+        txid: string,
+        vout: Array<{
+          value: number,
+          n: number,
+          scriptPubKey: {
+            asm: string,
+            type: string
+          }
+        }>,
+        hex: string,
+      }).catch(error => {
+        console.error(error)
+        return null
+      })));
+      for (const tx of txs) {
+        if (!tx) {
+          continue
+        }
+        const opReturnVouts = tx.vout.filter(vout =>
+          vout.scriptPubKey.type === 'nulldata'
+          && vout.scriptPubKey.asm.split(" ")?.[1]?.startsWith('424d4350')
+        );
+        if (!opReturnVouts.length) {
+          continue
+        }
+        for (const vout of opReturnVouts) {
+          opReturns.add({
+            txHash: tx.txid,
+            txHex: tx.hex,
+            voutIndex: vout.n,
+            voutValue: vout.value * 100_000_000,
+            scriptPubKeyAsm: vout.scriptPubKey.asm,
+            opReturnHex: vout.scriptPubKey.asm.split(' ')?.[1]
+          })
+        }
+      }
+      if (i + 3 < missingTxHashes.length) {
+        await delay(1100); // process max 3 requests per second
+      }
+    }
+    return res.status(200).send({
+      success: true,
+      mempoolCount: mempoolTxHashSet.size,
+      tatumCount: tatumTxHashes.length,
+      missingCount: missingTxHashes.length,
+      opReturns: Array.from(opReturns.values())
+    })
+  } catch (error) {
+    const casted = error as Partial<AxiosError>;
+    if (casted?.response) {
+      const errorText = typeof casted.response.data === 'string'
+        ? casted.response.data
+        : JSON.stringify(casted.response.data);
+      return res.status(500).send({
+        success: false,
+        message: `HTTP ${casted.response.status}: ${errorText}`
+      })
+    } else if (casted.request) {
+      return res.status(500).send({
+        success: false,
+        message: `Network error: ${casted.message}`
+      })
+    } else {
+      return res.status(500).send({
+        success: false,
+        message: `Error: ${casted.message ?? JSON.stringify(casted)}`
+      })
+    }
+  }
 });
 
 app.listen(PORT, () => {
