@@ -43,12 +43,15 @@ const estimateTxSize = (
     8 + 1 + 1 + varintSize(totalDataSize) + totalDataSize;
   const totalSize =
     overhead + inputSize + outputCount * p2wpkhOutputSize + opReturnOutputSize;
-  return Math.ceil(totalSize);
+  return {
+    txSize: Math.ceil(totalSize),
+    opReturnOutputSize
+  }
 };
 
 app.post('/psbt', async (req: Request, res: Response) => {
   try {
-    const { address, sendBmcpData } = req.body;
+    const { address, sendBmcpData, feeRateOverride } = req.body;
     if (!address || typeof address !== 'string') {
       throw new Error('invalid address');
     }
@@ -80,18 +83,12 @@ app.post('/psbt', async (req: Request, res: Response) => {
         psbt: null,
       });
     }
-
-    const txSize = estimateTxSize(
+    const { txSize, opReturnOutputSize } = estimateTxSize(
       utxos.length,
       1,
       payloadBuffer.length // Already includes protocol magic if using BitcoinCommandEncoder
     );
-
-    const feeRate = await axios
-      .get(`https://mempool.space/testnet4/api/v1/fees/recommended`)
-      .then((response) =>
-        response.data?.fastestFee ? Number(response.data.fastestFee) : 1
-      );
+    const feeRate = feeRateOverride && typeof feeRateOverride === 'number' ? Number(feeRateOverride) : await axios.get(`https://mempool.space/testnet4/api/v1/fees/recommended`).then(response => response.data?.fastestFee ? Number(response.data.fastestFee) : 1);
     const fee = Math.ceil(txSize * feeRate);
     const totalInput = utxos.reduce((total, current) => {
       return total + Number(current.value);
@@ -161,8 +158,10 @@ app.post('/psbt', async (req: Request, res: Response) => {
       protocolMagic: BMCP_PROTOCOL_MAGIC.toString('hex'),
       opReturnSize: fullData.length,
       txSize,
+      opReturnOutputSize,
       changeAmount,
       fee,
+      feeRate,
       psbt: psbt.toHex(),
       link: `https://mempool.space/testnet4/tx/preview#tx=${psbt.toHex()}`,
     });
