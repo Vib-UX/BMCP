@@ -1,6 +1,9 @@
 import express, { Request, Response } from 'express';
 import * as bitcoin from 'bitcoinjs-lib';
+import cors from 'cors'
 import axios, { AxiosError } from 'axios';
+import dotenv from 'dotenv'
+dotenv.config()
 
 const network = {
   ...bitcoin.networks.testnet,
@@ -13,10 +16,11 @@ const network = {
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-const TATUM_API_KEY = ''
+const TATUM_API_KEY = process.env.TATUM_API_KEY || ''
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(cors());
 
 // BMCP Protocol Magic: "BMCP" in hex = 0x424D4350
 const BMCP_PROTOCOL_MAGIC = Buffer.from([0x42, 0x4d, 0x43, 0x50]); // "BMCP"
@@ -164,7 +168,9 @@ app.post('/psbt', async (req: Request, res: Response) => {
       changeAmount,
       fee,
       feeRate,
-      psbt: psbt.toHex(),
+      psbtHex: psbt.toHex(),
+      psbtBase64: psbt.toBase64(),
+      psbtInputs: psbt.data.inputs.map((_input, index) => index),
       link: `https://mempool.space/testnet4/tx/preview#tx=${psbt.toHex()}`,
     });
   } catch (error) {
@@ -273,10 +279,14 @@ const parseOpReturnData = (tx: RawTx): OpReturnData | null => {
 
 app.post('/broadcast', async (req: Request, res: Response) => {
   try {
-    const { txHex } = req.body;
-    if (!txHex || typeof txHex !== 'string') {
-      throw new Error('invalid txHex');
+    const { txBase64 } = req.body;
+    if (!txBase64 || typeof txBase64 !== 'string') {
+      throw new Error('invalid txBase64');
     }
+    const psbt = bitcoin.Psbt.fromBase64(txBase64)
+    const finalized = psbt.finalizeAllInputs();
+    const tx = finalized.extractTransaction()
+    const txHex = tx.toHex()
     const txHash = await axios.post(`https://bitcoin-testnet4.gateway.tatum.io/`, {
       "jsonrpc": "2.0",
       "method": "sendrawtransaction",
@@ -291,6 +301,7 @@ app.post('/broadcast', async (req: Request, res: Response) => {
         'x-api-key': TATUM_API_KEY
       }
     }).then(response => response.data.result as string);
+    console.log(txHash)
     await delay(1100) // wait 1.1s
     const rawTx = await getTx(txHash)
     if (!rawTx) {
