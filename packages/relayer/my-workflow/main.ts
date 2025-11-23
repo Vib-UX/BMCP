@@ -49,6 +49,52 @@ const fetchStringInfo = (sendRequester: HTTPSendRequester, config: Config): Stri
 	}
 }
 
+/**
+ * Fetch mempool transaction IDs from Bitcoin network
+ */
+const fetchMempool = (sendRequester: HTTPSendRequester, config: Config): string[] => {
+	if (!config.bitcoinRpc) {
+		throw new Error('Bitcoin RPC configuration not found in config')
+	}
+
+	const rpcUrl = config.bitcoinRpc.url
+	const apiKey = config.bitcoinRpc.apiKey
+
+	const requestBody = JSON.stringify({
+		jsonrpc: '2.0',
+		method: 'getrawmempool',
+		params: [false], // false = return array of txids (not verbose)
+		id: 1,
+	})
+
+	// CRE HTTP capability expects body to be base64 encoded
+	const bodyBase64 = Buffer.from(requestBody, 'utf-8').toString('base64')
+
+	const response = sendRequester.sendRequest({
+		method: 'POST',
+		url: rpcUrl,
+		headers: {
+			'Content-Type': 'application/json',
+			'Accept': 'application/json',
+			'x-api-key': apiKey,
+		},
+		body: bodyBase64,
+	}).result()
+
+	if (response.statusCode !== 200) {
+		throw new Error(`Bitcoin RPC request failed with status: ${response.statusCode}`)
+	}
+
+	const responseText = Buffer.from(response.body).toString('utf-8')
+	const jsonResponse = JSON.parse(responseText)
+
+	if (jsonResponse.error) {
+		throw new Error(`RPC Error: ${jsonResponse.error.message}`)
+	}
+
+	return jsonResponse.result
+}
+
 const fetchBitcoinTransaction = (sendRequester: HTTPSendRequester, config: Config, txid: string): BitcoinTransaction => {
 	if (!config.bitcoinRpc) {
 		throw new Error('Bitcoin RPC configuration not found in config')
@@ -90,6 +136,31 @@ const fetchBitcoinTransaction = (sendRequester: HTTPSendRequester, config: Confi
 	}
 
 	return jsonResponse.result
+}
+
+/**
+ * STEP 0: Fetch mempool transaction IDs using CRE HTTP capability
+ */
+async function getMempoolTransactions(
+	runtime: Runtime<Config>
+): Promise<string[]> {
+	runtime.log('🔍 Fetching mempool transactions...');
+
+	const httpCapability = new cre.capabilities.HTTPClient()
+	
+	const txids = httpCapability
+		.sendRequest(
+			runtime,
+			fetchMempool,
+			ConsensusAggregationByFields<string[]>({
+				// For array consensus, we use identical on the entire array
+			}),
+		)(runtime.config)
+		.result()
+
+	runtime.log(`✅ Found ${txids.length} transaction(s) in mempool`);
+
+	return txids;
 }
 
 /**
@@ -451,73 +522,105 @@ const _onCronTrigger = async (runtime: Runtime<Config>): Promise<StringInfo> => 
 }
 
 const onCronTrigger = async (runtime: Runtime<Config>): Promise<StringInfo> => {
-	const exampleTxid = '967c5898bb81f7780bdde68e6d83c0903095e5650ad6fa5e76cf6cc5926947dd';
+	runtime.log('╔════════════════════════════════════════════════════════════╗');
+	runtime.log('║   BMCP Relayer: Processing Bitcoin Mempool                ║');
+	runtime.log('╚════════════════════════════════════════════════════════════╝');
+	runtime.log('');
 
-	// Step 1: Fetch transaction from Bitcoin network
-	const tx = await getBitcoinTransaction(runtime, exampleTxid);
+	// Step 0: Fetch all transaction IDs from mempool
+	const mempoolTxids = await getMempoolTransactions(runtime);
 
-	// Step 2: Extract OP_RETURN outputs
-	const opReturns = extractOPReturnsFromTx(runtime, tx);
-
-	if (opReturns.length === 0) {
-		runtime.log('❌ No OP_RETURN outputs found in this transaction.')
+	if (mempoolTxids.length === 0) {
+		runtime.log('ℹ️  Mempool is empty, no transactions to process');
 		return {stringPayload: ""};
 	}
 
-	let lastDecoded : {
-		protocol: string;
-		protocolMagic: number;
-		version: number;
-		chainSelector: bigint;
-		contract: string;
-		data: string;
-		nonce?: number;
-		deadline?: number;
-	};	
-	lastDecoded = {
-		protocol: "",
-		protocolMagic: 0,
-		version: 0,
-		chainSelector: BigInt(0),
-		contract: "",
-		data: "",
-		nonce: undefined,
-		deadline: undefined,
-	};
-	// Step 3-6: Process each OP_RETURN
-	for (let { index, data } of opReturns) {
-		runtime.log(`\n🔄 Processing OP_RETURN output #${index}...`);
+	runtime.log(`📋 Processing ${mempoolTxids.length} transaction(s) from mempool...`);
+	runtime.log('');
 
-		// Step 3: Check BMCP magic
-		const isBMCP = checkBMCPMagicInline(runtime, data);
-		if (!isBMCP) {
-			runtime.log('⏩ Skipping non-BMCP message')
-			continue
+	let processedCount = 0;
+	let bmcpMessageCount = 0;
+
+	// Process each transaction in the mempool
+	for (const txid of mempoolTxids) {
+		try {
+			runtime.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+			runtime.log(`📌 Processing Transaction: ${txid.slice(0, 16)}...${txid.slice(-8)}`);
+			runtime.log('');
+
+			// Step 1: Fetch transaction from Bitcoin network
+			const tx = await getBitcoinTransaction(runtime, txid);
+
+			// Step 2: Extract OP_RETURN outputs
+			const opReturns = extractOPReturnsFromTx(runtime, tx);
+
+			if (opReturns.length === 0) {
+				runtime.log('⏩ No OP_RETURN outputs, skipping...');
+				runtime.log('');
+				continue;
+			}
+
+			// Step 3-6: Process each OP_RETURN
+			for (let { index, data } of opReturns) {
+				runtime.log(`🔄 Processing OP_RETURN output #${index}...`);
+
+				// Step 3: Check BMCP magic
+				const isBMCP = checkBMCPMagicInline(runtime, data);
+				if (!isBMCP) {
+					runtime.log('⏩ Not a BMCP message, skipping...');
+					continue;
+				}
+
+				runtime.log(`✅ BMCP Message Detected!`);
+				bmcpMessageCount++;
+				
+				// Step 4: Decode BMCP message
+				const decoded = decodeBMCPMessageInline(runtime, data);
+			
+				// Step 5: Decode function call
+				decodeFunctionCallInline(runtime, decoded.data);
+
+				// Step 6: Validate and prepare for execution
+				validateForExecutionInline(runtime, decoded);
+
+				// Step 7: Relay to EVM contract
+				const payload = {
+					version: decoded.version,
+					chainSelector: decoded.chainSelector,
+					nonce: decoded.nonce,
+					deadline: decoded.deadline,
+					contract: decoded.contract,
+					data: decoded.data,
+				};
+				
+				runtime.log('');
+				runtime.log('🚀 Relaying to EVM contract...');
+				try {
+					relayToContract(runtime, payload);
+					runtime.log('✅ Successfully relayed to EVM!');
+					processedCount++;
+				} catch (error: any) {
+					runtime.log(`❌ Failed to relay: ${error.message}`);
+					// Continue processing other transactions even if one fails
+				}
+			}
+
+		} catch (error: any) {
+			runtime.log(`❌ Error processing transaction ${txid}: ${error.message}`);
+			runtime.log('⏩ Continuing with next transaction...');
+			runtime.log('');
+			// Continue processing other transactions even if one fails
+			continue;
 		}
-
-		runtime.log(`✅ BMCP Message Detected in OP_RETURN output #${index}`)
-		// sepolia, cirtea, polygon
-		// Step 4: Decode BMCP message
-		const decoded = decodeBMCPMessageInline(runtime, data);
-		lastDecoded = decoded;
-	
-		// Step 5: Decode function call
-		decodeFunctionCallInline(runtime, decoded.data);
-
-		// Step 6: Validate and prepare for execution
-		validateForExecutionInline(runtime, decoded);
 	}
 
-	const payload = {
-		version: lastDecoded.version,
-		chainSelector: lastDecoded.chainSelector,
-		nonce: lastDecoded.nonce,
-		deadline: lastDecoded.deadline,
-		contract: lastDecoded.contract,
-		data: "0x9db5dbe4000000000000000000000000779877a7b0d9e8603169ddbd7836e478b46247890000000000000000000000003264ecf9fc5cd46cfde1033f26e63da85c964e760000000000000000000000000000000000000000000000000de0b6b3a764000000000000000000000000000000000000000000000000000000000000",
-	}
-	
-	relayToContract(runtime, payload);
+	runtime.log('');
+	runtime.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+	runtime.log('📊 Summary:');
+	runtime.log(`   • Mempool Transactions: ${mempoolTxids.length}`);
+	runtime.log(`   • BMCP Messages Found: ${bmcpMessageCount}`);
+	runtime.log(`   • Successfully Relayed: ${processedCount}`);
+	runtime.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
 	return {stringPayload: ""};
 }
