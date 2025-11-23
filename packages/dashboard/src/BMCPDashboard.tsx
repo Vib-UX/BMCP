@@ -417,23 +417,30 @@ export function BMCPDashboard() {
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Function Signature
             </label>
-            <input
-              type="text"
-              list="function-suggestions"
-              value={functionSignature}
+            <select
+              value={COMMON_FUNCTIONS.find(f => f.value === functionSignature) ? functionSignature : ''}
               onChange={(e) => setFunctionSignature(e.target.value)}
-              placeholder="deposit(address,uint256)"
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-800 bg-white placeholder-gray-400 focus:ring-2 focus:ring-orange-500 focus:border-transparent font-mono text-sm"
-            />
-            <datalist id="function-suggestions">
-              {COMMON_FUNCTIONS.filter(fn => fn.value).map((fn) => (
-                <option key={fn.value} value={fn.value}>
+              className="w-full px-4 py-3 border border-gray-300 text-gray-800 bg-white rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent font-mono text-sm"
+            >
+              {COMMON_FUNCTIONS.map((fn) => (
+                <option key={fn.label} value={fn.value}>
                   {fn.label}
                 </option>
               ))}
-            </datalist>
+            </select>
+            {(!COMMON_FUNCTIONS.find(f => f.value === functionSignature && f.value !== '') || functionSignature === '') && (
+              <input
+                type="text"
+                value={functionSignature}
+                onChange={(e) => setFunctionSignature(e.target.value)}
+                placeholder="Enter custom function signature: functionName(type1,type2,...)"
+                className="w-full px-4 py-3 mt-2 border border-gray-300 rounded-lg text-gray-800 bg-white placeholder-gray-400 focus:ring-2 focus:ring-orange-500 focus:border-transparent font-mono text-sm"
+              />
+            )}
             <p className="text-xs text-gray-500 mt-2">
-              💡 Common: deposit(address,uint256), transfer(address,uint256), mint(address,uint256)
+              {functionSignature === '' || !COMMON_FUNCTIONS.find(f => f.value === functionSignature && f.value !== '')
+                ? 'Enter your custom function signature (e.g., myFunction(address,uint256,bool))'
+                : 'Select a common function or choose "Custom Function" to enter your own'}
             </p>
           </div>
 
