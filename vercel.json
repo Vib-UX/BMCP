@@ -1,7 +1,7 @@
 {
+  "framework": null,
   "buildCommand": "npm run build:sdk && npm run build:dashboard",
   "outputDirectory": "packages/dashboard/dist",
-  "installCommand": "npm install",
-  "framework": null
+  "installCommand": "npm install"
 }
 
