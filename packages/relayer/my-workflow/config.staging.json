@@ -1,20 +1,20 @@
 {
   "schedule": "*/30 * * * * *",
-  "myAddress": "0x1234567890123456789012345678901234567890",
+  "myAddress": "0xefF083B4d0d0435ac40C43b95661Ad45EfCAcAf2",
   "url": "http://localhost:8000",
   "evms": [
     {
-      "contractAddress": "0x2BaE8224110482eC6dDF12faf359A35362d43573",
+      "contractAddress": "0xefF083B4d0d0435ac40C43b95661Ad45EfCAcAf2",
       "chainSelectorName": "ethereum-testnet-sepolia",
       "gasLimit": "1000000"
     },
     {
-      "contractAddress": "0x2BaE8224110482eC6dDF12faf359A35362d43573",
+      "contractAddress": "0xefF083B4d0d0435ac40C43b95661Ad45EfCAcAf2",
       "chainSelectorName": "ethereum-testnet-sepolia",
       "gasLimit": "1000000"
     },
     {
-      "contractAddress": "0x2BaE8224110482eC6dDF12faf359A35362d43573",
+      "contractAddress": "0xefF083B4d0d0435ac40C43b95661Ad45EfCAcAf2",
       "chainSelectorName": "ethereum-testnet-sepolia",
       "gasLimit": "1000000"
     }

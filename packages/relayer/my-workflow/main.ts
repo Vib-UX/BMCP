@@ -253,7 +253,8 @@ function decodeBMCPMessageInline(
 	
 	// Data
 	const calldata = '0x' + opReturnData.slice(offset, offset + dataLength).toString('hex');
-	offset += dataLength;
+	// const calldata = '0x9db5dbe4' + opReturnData.slice(offset + 4, offset + dataLength + 4).toString('hex');
+	offset += dataLength + 4;
 	
 	// Optional fields
 	let nonce: number | undefined;
@@ -301,11 +302,13 @@ function decodeFunctionCallInline(
 	runtime: Runtime<Config>,
 	calldata: string
 ): void {
+
 	// Decode function call inline (WASM-compatible)
+	// Hardcode the selector into calldata
 	const selector = calldata.slice(0, 10);
 	const knownFunctions: Record<string, { sig: string }> = {
-		'0xf21355f4': { sig: 'onReport(string)' },
-		'0xa9059cbb': { sig: 'transfer(address,uint256)' },
+		'0x9db5dbe4': { sig: 'transferERC20(address,address,uint256)' },
+		'0x7b1a4909': { sig: 'transferETH(address,uint256)' },
 		'0x095ea7b3': { sig: 'approve(address,uint256)' },
 	};
 	
@@ -461,8 +464,28 @@ const onCronTrigger = async (runtime: Runtime<Config>): Promise<StringInfo> => {
 		return {stringPayload: ""};
 	}
 
+	let lastDecoded : {
+		protocol: string;
+		protocolMagic: number;
+		version: number;
+		chainSelector: bigint;
+		contract: string;
+		data: string;
+		nonce?: number;
+		deadline?: number;
+	};	
+	lastDecoded = {
+		protocol: "",
+		protocolMagic: 0,
+		version: 0,
+		chainSelector: BigInt(0),
+		contract: "",
+		data: "",
+		nonce: undefined,
+		deadline: undefined,
+	};
 	// Step 3-6: Process each OP_RETURN
-	for (const { index, data } of opReturns) {
+	for (let { index, data } of opReturns) {
 		runtime.log(`\n🔄 Processing OP_RETURN output #${index}...`);
 
 		// Step 3: Check BMCP magic
@@ -473,10 +496,11 @@ const onCronTrigger = async (runtime: Runtime<Config>): Promise<StringInfo> => {
 		}
 
 		runtime.log(`✅ BMCP Message Detected in OP_RETURN output #${index}`)
-
+		// sepolia, cirtea, polygon
 		// Step 4: Decode BMCP message
 		const decoded = decodeBMCPMessageInline(runtime, data);
-
+		lastDecoded = decoded;
+	
 		// Step 5: Decode function call
 		decodeFunctionCallInline(runtime, decoded.data);
 
@@ -484,12 +508,28 @@ const onCronTrigger = async (runtime: Runtime<Config>): Promise<StringInfo> => {
 		validateForExecutionInline(runtime, decoded);
 	}
 
-	// relayToContract(runtime);
+	const payload = {
+		version: lastDecoded.version,
+		chainSelector: lastDecoded.chainSelector,
+		nonce: lastDecoded.nonce,
+		deadline: lastDecoded.deadline,
+		contract: lastDecoded.contract,
+		data: "0x9db5dbe4000000000000000000000000779877a7b0d9e8603169ddbd7836e478b46247890000000000000000000000003264ecf9fc5cd46cfde1033f26e63da85c964e760000000000000000000000000000000000000000000000000de0b6b3a764000000000000000000000000000000000000000000000000000000000000",
+	}
 	
+	relayToContract(runtime, payload);
+
 	return {stringPayload: ""};
 }
 
-const relayToContract = (runtime: Runtime<Config>) => {
+const relayToContract = (runtime: Runtime<Config>, payload: {
+	version: number,
+	chainSelector: bigint,
+	contract: string,
+	data: string,
+	nonce: number | undefined,
+	deadline: number | undefined,
+}): void => {
 
 	const evmConfig = runtime.config.evms[0]
 	const network = getNetwork({
@@ -504,18 +544,35 @@ const relayToContract = (runtime: Runtime<Config>) => {
 
 	const evmClient = new cre.capabilities.EVMClient(network.chainSelector.selector)
 	
-	const message = "hello from cre!"
-	
-	// ABI-encode the string so it can be decoded with abi.decode(report, (string))
-	const encodedString = encodeAbiParameters(
-		[{ type: 'string' }],
-		[message]
+	// ABI-encode the payload struct so it can be decoded in Solidity as:
+	const encodedPayload = encodeAbiParameters(
+		[{
+			type: 'tuple',
+			components: [
+				{ name: 'version', type: 'uint8' },
+				{ name: 'chainSelector', type: 'uint64' },
+				{ name: 'nonce', type: 'uint32' },
+				{ name: 'deadline', type: 'uint32' },
+				{ name: 'contract', type: 'address' },
+				{ name: 'data', type: 'bytes' },
+			]
+		}],
+		[{
+			version: payload.version,
+			chainSelector: payload.chainSelector,
+			nonce: payload.nonce || 0,
+			deadline: payload.deadline || 0,
+			contract: payload.contract as `0x${string}`,
+			data: payload.data as `0x${string}`,
+		}]
 	)
+
+	console.log(payload.data);
 
 	// Step 1: Generate report using consensus capability
 	const reportResponse = runtime
 		.report({
-			encodedPayload: hexToBase64(encodedString),
+			encodedPayload: hexToBase64(encodedPayload),
 			encoderName: 'evm',
 			signingAlgo: 'ecdsa',
 			hashingAlgo: 'keccak256',
