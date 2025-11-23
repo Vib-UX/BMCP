@@ -200,10 +200,32 @@ export function BMCPDashboard() {
           txBase64: psbtSigned,
         }),
       });
-      if (!response.ok) {
-        throw new Error('Failed to broadcast transaction');
+      
+      // Try to parse response even if not ok
+      let data;
+      try {
+        data = await response.json();
+      } catch (parseErr) {
+        throw new Error('Failed to broadcast transaction - invalid response');
       }
-      const data = await response.json();
+
+      if (!response.ok) {
+        // If broadcast failed but we have a txHash/txid, still show it
+        if (data.txHash || data.txid) {
+          const txHash = data.txHash || data.txid;
+          setSuccess(JSON.stringify({
+            success: false,
+            txHash: txHash,
+            link: `https://mempool.space/testnet4/tx/${txHash}`,
+            message: 'Transaction created but broadcast may have failed. Check the explorer.',
+            error: data.message || data.error
+          }));
+          setLoading(false);
+          return;
+        }
+        throw new Error(data.message || data.error || 'Failed to broadcast transaction');
+      }
+      
       setSuccess(JSON.stringify(data));
     } catch (err) {
       setError(
@@ -418,7 +440,11 @@ export function BMCPDashboard() {
               Function Signature
             </label>
             <select
-              value={COMMON_FUNCTIONS.find(f => f.value === functionSignature) ? functionSignature : ''}
+              value={
+                COMMON_FUNCTIONS.find((f) => f.value === functionSignature)
+                  ? functionSignature
+                  : ''
+              }
               onChange={(e) => setFunctionSignature(e.target.value)}
               className="w-full px-4 py-3 border border-gray-300 text-gray-800 bg-white rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent font-mono text-sm"
             >
@@ -428,7 +454,10 @@ export function BMCPDashboard() {
                 </option>
               ))}
             </select>
-            {(!COMMON_FUNCTIONS.find(f => f.value === functionSignature && f.value !== '') || functionSignature === '') && (
+            {(!COMMON_FUNCTIONS.find(
+              (f) => f.value === functionSignature && f.value !== ''
+            ) ||
+              functionSignature === '') && (
               <input
                 type="text"
                 value={functionSignature}
@@ -438,7 +467,10 @@ export function BMCPDashboard() {
               />
             )}
             <p className="text-xs text-gray-500 mt-2">
-              {functionSignature === '' || !COMMON_FUNCTIONS.find(f => f.value === functionSignature && f.value !== '')
+              {functionSignature === '' ||
+              !COMMON_FUNCTIONS.find(
+                (f) => f.value === functionSignature && f.value !== ''
+              )
                 ? 'Enter your custom function signature (e.g., myFunction(address,uint256,bool))'
                 : 'Select a common function or choose "Custom Function" to enter your own'}
             </p>
@@ -646,17 +678,27 @@ export function BMCPDashboard() {
           {success && (
             <div className="mt-4 space-y-4">
               {/* Bitcoin Transaction Success */}
-              <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+              <div className={`p-4 ${JSON.parse(success).success === false ? 'bg-yellow-50 border-yellow-200' : 'bg-green-50 border-green-200'} border rounded-lg`}>
                 <div className="flex items-start">
-                  <span className="text-green-600 text-2xl mr-3">✅</span>
+                  <span className={`${JSON.parse(success).success === false ? 'text-yellow-600' : 'text-green-600'} text-2xl mr-3`}>
+                    {JSON.parse(success).success === false ? '⚠️' : '✅'}
+                  </span>
                   <div className="flex-1">
-                    <strong className="text-green-700 text-lg">
-                      Bitcoin Transaction Broadcast Successfully!
+                    <strong className={`${JSON.parse(success).success === false ? 'text-yellow-700' : 'text-green-700'} text-lg`}>
+                      {JSON.parse(success).success === false 
+                        ? 'Transaction Created (Broadcast Status Unknown)'
+                        : 'Bitcoin Transaction Broadcast Successfully!'}
                     </strong>
                     <p className="text-sm text-gray-600 mt-1">
-                      Your cross-chain message has been embedded in a Bitcoin
-                      transaction
+                      {JSON.parse(success).success === false
+                        ? 'Your transaction was created. Check the explorer to verify broadcast status.'
+                        : 'Your cross-chain message has been embedded in a Bitcoin transaction'}
                     </p>
+                    {JSON.parse(success).error && (
+                      <p className="text-xs text-yellow-700 mt-1 bg-yellow-100 p-2 rounded">
+                        ⚠️ {JSON.parse(success).error}
+                      </p>
+                    )}
 
                     {/* Transaction Links */}
                     <div className="mt-3 space-y-2">
@@ -704,7 +746,8 @@ export function BMCPDashboard() {
                 </div>
               </div>
 
-              {/* CCIP Processing Status */}
+              {/* CCIP Processing Status - Only show if broadcast was successful */}
+              {JSON.parse(success).success !== false && (
               <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
                 <div className="flex items-start">
                   <div className="mr-3 mt-1">
@@ -807,6 +850,7 @@ export function BMCPDashboard() {
                   </div>
                 </div>
               </div>
+              )}
             </div>
           )}
         </div>
