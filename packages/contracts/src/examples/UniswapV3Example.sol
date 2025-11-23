@@ -37,7 +37,7 @@ contract UniswapV3Example is OwnedByBMCP {
 
   function swapWETHforUSDC(
     uint256 amountIn
-  ) external returns (uint256 amountOut) {
+  ) external onlyBMCP returns (uint256 amountOut) {
     return _swapSingle(weth, usdc, 3000, amountIn);
   }
 
@@ -46,7 +46,7 @@ contract UniswapV3Example is OwnedByBMCP {
     address tokenOut,
     uint24 fee,
     uint256 amountIn
-  ) internal returns (uint256 amountOut) {
+  ) internal onlyBMCP returns (uint256 amountOut) {
     uint256 minOut = /* Calculate min output */ 0;
     uint160 priceLimit = /* Calculate price limit */ 0;
 

@@ -7,6 +7,7 @@
     "test": "hardhat test",
     "clean": "hardhat clean && rm -rf cache artifacts",
     "deploy:sepolia": "hardhat ignition deploy --network sepolia --verify",
+    "deploy:polygon": "hardhat ignition deploy --network polygon --verify",
     "deploy:local": "hardhat ignition deploy --network hardhatMainnet"
   },
   "keywords": [
