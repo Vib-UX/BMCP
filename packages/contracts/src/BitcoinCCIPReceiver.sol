@@ -16,34 +16,38 @@ contract BitcoinCREReceiver is IReceiverTemplate {
 
   mapping(bytes32 => bool) public executedBtcTxs;
   mapping(address => mapping(uint32 => bool)) public usedNonces;
-  // mapping(address => bool) public authorizedContracts;
+  mapping(address => bool) public authorizedContracts;
 
-  struct BMCPCommand {
-    uint32 protocolMagic;
+  struct BMCPPayload {
     uint8 version;
-    address targetContract;
-    bytes callData;
+    uint64 chainSelector;
     uint32 nonce;
     uint32 deadline;
-    bytes32 btcTxHash;
-    uint256 btcBlockHeight;
+    address targetContract;
+    bytes data;
   }
 
-  // Events
+  /////////////////////////////////////////////////////////////////
+  /// Events
+  /////////////////////////////////////////////////////////////////
+
   event BMCPCommandReceived(
-    bytes32 indexed btcTxHash,
+    /* bytes32 indexed btcTxHash, */
     address indexed targetContract,
-    bytes4 functionSelector
+    bytes data
   );
 
   event BMCPCommandExecuted(
-    bytes32 indexed btcTxHash,
+    // bytes32 indexed btcTxHash,
     address indexed targetContract,
     bool success,
     bytes result
   );
 
-  // Errors
+  /////////////////////////////////////////////////////////////////
+  /// Errors
+  /////////////////////////////////////////////////////////////////
+
   error InvalidProtocolMagic(uint32 received, uint32 expected);
   error UnsupportedVersion(uint8 received);
   error UnauthorizedContract(address contract_);
@@ -53,7 +57,6 @@ contract BitcoinCREReceiver is IReceiverTemplate {
   error InvalidDataLength();
 
   constructor(address _forwarder, bytes32 _workflowId) IReceiverTemplate() {
-    // Set CRE forwarder and workflow
     forwarderAddress = _forwarder;
     expectedWorkflowId = _workflowId;
   }
@@ -66,94 +69,44 @@ contract BitcoinCREReceiver is IReceiverTemplate {
   }
 
   function _processReport(bytes calldata report) internal override {
-    require(report.length >= 64, 'Invalid report length');
-
-    bytes32 btcTxHash = bytes32(report[0:32]);
-    uint256 btcBlockHeight = uint256(bytes32(report[32:64]));
-
-    bytes calldata opReturnData = report[64:];
+    // require(report.length >= 64, 'Invalid report length');
+    // bytes32 btcTxHash = bytes32(report[0:32]);
 
     // Check not already executed
-    if (executedBtcTxs[btcTxHash]) {
-      revert AlreadyExecuted(btcTxHash);
-    }
+    // if (executedBtcTxs[btcTxHash]) {
+    //   revert AlreadyExecuted(btcTxHash);
+    // }
 
     // Decode BMCP command
-    BMCPCommand memory cmd = _decodeBMCP(opReturnData);
-    cmd.btcTxHash = btcTxHash;
-    cmd.btcBlockHeight = btcBlockHeight;
+    BMCPPayload memory payload = abi.decode(report, (BMCPPayload));
+    // BMCPCommand memory cmd = _decodeBMCP(report);
+
+    emit BMCPCommandReceived(payload.targetContract, payload.data);
+    // cmd.btcTxHash = btcTxHash;
 
     // Validate command
-    _validateCommand(cmd);
+    // _validateCommand(cmd);
 
     // Mark as executed
-    executedBtcTxs[btcTxHash] = true;
+    // executedBtcTxs[btcTxHash] = true;
 
     // Mark nonce as used if present
-    if (cmd.nonce > 0) {
-      usedNonces[cmd.targetContract][cmd.nonce] = true;
-    }
+    // if (cmd.nonce > 0) {
+    //   usedNonces[cmd.targetContract][cmd.nonce] = true;
+    // }
 
     // Emit received event
-    bytes4 functionSelector = bytes4(cmd.callData);
-    emit BMCPCommandReceived(btcTxHash, cmd.targetContract, functionSelector);
+    // bytes4 functionSelector = bytes4(cmd.callData);
+    // emit BMCPCommandReceived(cmd.targetContract, functionSelector);
 
-    _executeCommand(cmd);
+    // _executeCommand(cmd);
   }
 
-  function _decodeBMCP(
-    bytes calldata data
-  ) internal pure returns (BMCPCommand memory cmd) {
-    require(data.length >= 35, 'Data too short'); // Minimum: magic(4) + version(1) + chain(8) + contract(20) + length(2)
-
-    uint256 offset = 0;
-
-    // Protocol Magic (4 bytes)
-    cmd.protocolMagic = uint32(bytes4(data[offset:offset + 4]));
-    offset += 4;
-
-    // Version (1 byte)
-    cmd.version = uint8(data[offset]);
-    offset += 1;
-
-    // Target Contract (20 bytes)
-    cmd.targetContract = address(bytes20(data[offset:offset + 20]));
-    offset += 20;
-
-    // Data Length (2 bytes)
-    uint16 dataLength = uint16(bytes2(data[offset:offset + 2]));
-    offset += 2;
-
-    // Validate remaining data length
-
-    if (dataLength > data.length - offset) {
-      revert InvalidDataLength();
-    }
-
-    // Call Data
-    cmd.callData = data[offset:offset + dataLength];
-    offset += dataLength;
-
-    // Optional: Nonce (4 bytes)
-    if (data.length >= offset + 4) {
-      cmd.nonce = uint32(bytes4(data[offset:offset + 4]));
-      offset += 4;
-    }
-
-    // Optional: Deadline (4 bytes)
-    if (data.length >= offset + 4) {
-      cmd.deadline = uint32(bytes4(data[offset:offset + 4]));
-      offset += 4;
-    }
-
-    return cmd;
-  }
-
-  function _validateCommand(BMCPCommand memory cmd) internal view {
+  function _validateCommand(BMCPPayload memory cmd) internal view {
     // Verify protocol magic
-    if (cmd.protocolMagic != PROTOCOL_MAGIC) {
-      revert InvalidProtocolMagic(cmd.protocolMagic, PROTOCOL_MAGIC);
-    }
+    // if (cmd.protocolMagic != PROTOCOL_MAGIC) {
+    //   revert InvalidProtocolMagic(cmd.protocolMagic, PROTOCOL_MAGIC);
+    // }
 
     // Verify version
     if (cmd.version != SUPPORTED_VERSION) {
@@ -176,18 +129,16 @@ contract BitcoinCREReceiver is IReceiverTemplate {
     }
   }
 
-  function _executeCommand(BMCPCommand memory cmd) internal {
-    // Execute the call
-    (bool success, bytes memory result) = cmd.targetContract.call(cmd.callData);
+  function _executeCommand(BMCPPayload memory cmd) internal {
+    (bool success, bytes memory result) = cmd.targetContract.call(cmd.data);
 
     emit BMCPCommandExecuted(
-      cmd.btcTxHash,
+      // cmd.btcTxHash,
       cmd.targetContract,
       success,
       result
     );
 
-    // Optional: revert on failure
     if (!success) {
       _handleExecutionFailure(cmd.targetContract, result);
     }
