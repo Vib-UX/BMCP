@@ -79,6 +79,7 @@ export function BMCPDashboard() {
   const [unsignedPsbt, setUnsignedPsbt] = useState<string>('');
   const [_psbtInputs, setPsbtInputs] = useState<Array<number>>([]);
   const [signedPsbt, setSignedPsbt] = useState<string>('');
+  const [transactionId, setTransactionId] = useState<string>('');
   const [sendBmcpData, setSendBmcpData] = useState<string>('');
   const [selectedChain, setSelectedChain] = useState(SUPPORTED_CHAINS[1]); // Default to Sepolia
   const [receiverAddress, setReceiverAddress] = useState(
@@ -182,6 +183,11 @@ export function BMCPDashboard() {
         throw new Error(JSON.stringify(response.error));
       }
       setSignedPsbt(response.result.psbt);
+      
+      // Try to get txid from response if available
+      if (response.result.txid) {
+        setTransactionId(response.result.txid);
+      }
 
       // Auto-broadcast after signing
       setTimeout(() => broadcastSignedPsbtAuto(response.result.psbt), 500);
@@ -200,7 +206,7 @@ export function BMCPDashboard() {
           txBase64: psbtSigned,
         }),
       });
-      
+
       // Try to parse response even if not ok
       let data;
       try {
@@ -210,20 +216,48 @@ export function BMCPDashboard() {
       }
 
       if (!response.ok) {
-        // If broadcast failed but we have a txHash/txid, still show it
-        if (data.txHash || data.txid) {
-          const txHash = data.txHash || data.txid;
-          setSuccess(JSON.stringify({
-            success: false,
-            txHash: txHash,
-            link: `https://mempool.space/testnet4/tx/${txHash}`,
-            message: 'Transaction created but broadcast may have failed. Check the explorer.',
-            error: data.message || data.error
-          }));
+        // Try to get txHash from various sources
+        let extractedTxHash = data.txHash || data.txid;
+        
+        // Try to extract txid from error message (e.g., "rejecting replacement <txid>")
+        if (!extractedTxHash && data.message) {
+          const txidMatch = data.message.match(/rejecting replacement ([a-f0-9]{64})/i) ||
+                           data.message.match(/([a-f0-9]{64})/);
+          if (txidMatch) {
+            extractedTxHash = txidMatch[1];
+          }
+        }
+        
+        // Use stored transactionId as fallback
+        if (!extractedTxHash && transactionId) {
+          extractedTxHash = transactionId;
+        }
+        
+        // If we have any txHash, show it
+        if (extractedTxHash) {
+          setTransactionId(extractedTxHash);
+          setSuccess(
+            JSON.stringify({
+              success: false,
+              txHash: extractedTxHash,
+              link: `https://mempool.space/testnet4/tx/${extractedTxHash}`,
+              message:
+                'Transaction created but broadcast may have failed. Check the explorer.',
+              error: data.message || data.error,
+            })
+          );
           setLoading(false);
           return;
         }
-        throw new Error(data.message || data.error || 'Failed to broadcast transaction');
+        
+        throw new Error(
+          data.message || data.error || 'Failed to broadcast transaction'
+        );
+      }
+
+      // Store successful txHash
+      if (data.txHash) {
+        setTransactionId(data.txHash);
       }
       
       setSuccess(JSON.stringify(data));
@@ -678,14 +712,32 @@ export function BMCPDashboard() {
           {success && (
             <div className="mt-4 space-y-4">
               {/* Bitcoin Transaction Success */}
-              <div className={`p-4 ${JSON.parse(success).success === false ? 'bg-yellow-50 border-yellow-200' : 'bg-green-50 border-green-200'} border rounded-lg`}>
+              <div
+                className={`p-4 ${
+                  JSON.parse(success).success === false
+                    ? 'bg-yellow-50 border-yellow-200'
+                    : 'bg-green-50 border-green-200'
+                } border rounded-lg`}
+              >
                 <div className="flex items-start">
-                  <span className={`${JSON.parse(success).success === false ? 'text-yellow-600' : 'text-green-600'} text-2xl mr-3`}>
+                  <span
+                    className={`${
+                      JSON.parse(success).success === false
+                        ? 'text-yellow-600'
+                        : 'text-green-600'
+                    } text-2xl mr-3`}
+                  >
                     {JSON.parse(success).success === false ? '⚠️' : '✅'}
                   </span>
                   <div className="flex-1">
-                    <strong className={`${JSON.parse(success).success === false ? 'text-yellow-700' : 'text-green-700'} text-lg`}>
-                      {JSON.parse(success).success === false 
+                    <strong
+                      className={`${
+                        JSON.parse(success).success === false
+                          ? 'text-yellow-700'
+                          : 'text-green-700'
+                      } text-lg`}
+                    >
+                      {JSON.parse(success).success === false
                         ? 'Transaction Created (Broadcast Status Unknown)'
                         : 'Bitcoin Transaction Broadcast Successfully!'}
                     </strong>
@@ -748,108 +800,108 @@ export function BMCPDashboard() {
 
               {/* CCIP Processing Status - Only show if broadcast was successful */}
               {JSON.parse(success).success !== false && (
-              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                <div className="flex items-start">
-                  <div className="mr-3 mt-1">
-                    <svg
-                      className="animate-spin h-5 w-5 text-blue-600"
-                      viewBox="0 0 24 24"
-                    >
-                      <circle
-                        className="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        strokeWidth="4"
-                        fill="none"
-                      />
-                      <path
-                        className="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                      />
-                    </svg>
-                  </div>
-                  <div className="flex-1">
-                    <strong className="text-blue-700 text-base">
-                      ⏳ Processing Cross-Chain Message
-                    </strong>
-                    <div className="mt-2 space-y-2 text-sm text-gray-700">
-                      <div className="flex items-center gap-2">
-                        <span className="text-blue-600">🔄</span>
-                        <span>
-                          Waiting for Bitcoin confirmations (~6 blocks, ~60
-                          minutes)
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-blue-600">🔍</span>
-                        <span>BMCP Relayer will decode OP_RETURN data</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-blue-600">⚡</span>
-                        <span>
-                          CCIP Router will process the message on{' '}
-                          {selectedChain.name}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="mt-3 p-3 bg-white rounded-lg border border-blue-200">
-                      <div className="text-xs text-gray-500 mb-1">
-                        Expected EVM Transaction:
-                      </div>
-                      <div className="text-xs text-gray-600">
-                        Once processed, your message will be executed on{' '}
-                        <strong>{selectedChain.name}</strong>
-                      </div>
-                      <a
-                        href="https://sepolia.etherscan.io/address/0x15fC6ae953E024d975e77382eEeC56A9101f9F88"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 mt-2 text-xs text-blue-600 hover:text-blue-800 underline"
+                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="flex items-start">
+                    <div className="mr-3 mt-1">
+                      <svg
+                        className="animate-spin h-5 w-5 text-blue-600"
+                        viewBox="0 0 24 24"
                       >
-                        View Receiver Contract on Etherscan →
-                      </a>
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                          fill="none"
+                        />
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        />
+                      </svg>
                     </div>
-
-                    <details className="mt-3">
-                      <summary className="cursor-pointer text-xs text-gray-500 hover:text-gray-700">
-                        📖 What happens next?
-                      </summary>
-                      <div className="mt-2 text-xs text-gray-600 bg-white p-3 rounded border space-y-2">
-                        <p>
-                          <strong>1. Bitcoin Confirmation:</strong> Your
-                          transaction needs 6 block confirmations on Bitcoin
-                          Testnet4
-                        </p>
-                        <p>
-                          <strong>2. Relayer Detection:</strong> The BMCP
-                          Relayer monitors Bitcoin blocks and detects your
-                          OP_RETURN data
-                        </p>
-                        <p>
-                          <strong>3. Message Decoding:</strong> The relayer
-                          decodes your BMCP message (chain selector, contract,
-                          function call)
-                        </p>
-                        <p>
-                          <strong>4. CCIP Processing:</strong> The message is
-                          sent to the CCIP router on the destination chain
-                        </p>
-                        <p>
-                          <strong>5. Execution:</strong> Your function call is
-                          executed on the receiver contract at{' '}
-                          <code className="text-purple-600">
-                            {receiverAddress}
-                          </code>
-                        </p>
+                    <div className="flex-1">
+                      <strong className="text-blue-700 text-base">
+                        ⏳ Processing Cross-Chain Message
+                      </strong>
+                      <div className="mt-2 space-y-2 text-sm text-gray-700">
+                        <div className="flex items-center gap-2">
+                          <span className="text-blue-600">🔄</span>
+                          <span>
+                            Waiting for Bitcoin confirmations (~6 blocks, ~60
+                            minutes)
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-blue-600">🔍</span>
+                          <span>BMCP Relayer will decode OP_RETURN data</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-blue-600">⚡</span>
+                          <span>
+                            CCIP Router will process the message on{' '}
+                            {selectedChain.name}
+                          </span>
+                        </div>
                       </div>
-                    </details>
+
+                      <div className="mt-3 p-3 bg-white rounded-lg border border-blue-200">
+                        <div className="text-xs text-gray-500 mb-1">
+                          Expected EVM Transaction:
+                        </div>
+                        <div className="text-xs text-gray-600">
+                          Once processed, your message will be executed on{' '}
+                          <strong>{selectedChain.name}</strong>
+                        </div>
+                        <a
+                          href="https://sepolia.etherscan.io/address/0x15fC6ae953E024d975e77382eEeC56A9101f9F88"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 mt-2 text-xs text-blue-600 hover:text-blue-800 underline"
+                        >
+                          View Receiver Contract on Etherscan →
+                        </a>
+                      </div>
+
+                      <details className="mt-3">
+                        <summary className="cursor-pointer text-xs text-gray-500 hover:text-gray-700">
+                          📖 What happens next?
+                        </summary>
+                        <div className="mt-2 text-xs text-gray-600 bg-white p-3 rounded border space-y-2">
+                          <p>
+                            <strong>1. Bitcoin Confirmation:</strong> Your
+                            transaction needs 6 block confirmations on Bitcoin
+                            Testnet4
+                          </p>
+                          <p>
+                            <strong>2. Relayer Detection:</strong> The BMCP
+                            Relayer monitors Bitcoin blocks and detects your
+                            OP_RETURN data
+                          </p>
+                          <p>
+                            <strong>3. Message Decoding:</strong> The relayer
+                            decodes your BMCP message (chain selector, contract,
+                            function call)
+                          </p>
+                          <p>
+                            <strong>4. CCIP Processing:</strong> The message is
+                            sent to the CCIP router on the destination chain
+                          </p>
+                          <p>
+                            <strong>5. Execution:</strong> Your function call is
+                            executed on the receiver contract at{' '}
+                            <code className="text-purple-600">
+                              {receiverAddress}
+                            </code>
+                          </p>
+                        </div>
+                      </details>
+                    </div>
                   </div>
                 </div>
-              </div>
               )}
             </div>
           )}
