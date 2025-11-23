@@ -192,15 +192,143 @@ app.post('/psbt', async (req: Request, res: Response) => {
   }
 });
 
+type OpReturnData = {
+  txHash: string,
+  txHex: string,
+  voutIndex: number,
+  voutValue: number,
+  scriptPubKeyAsm: string,
+  opReturnHex: string,
+  initiatorAddress: string
+}
+
+const opReturnCache = new Map<string, OpReturnData | null>()
+
 // Health check endpoint
 app.get('/health', (req: Request, res: Response) => {
   res.send({
     success: true,
     protocol: 'BMCP',
     protocolMagic: BMCP_PROTOCOL_MAGIC.toString('hex'),
+    opReturnCache: Array.from(opReturnCache.keys()),
     version: '1.0.0',
   });
 })
+
+type RawTx = {
+  txid: string,
+  vout: Array<{
+    value: number,
+    n: number,
+    scriptPubKey: {
+      asm: string,
+      type: string,
+      address?: string
+    }
+  }>,
+  hex: string,
+}
+
+const getTx = async (hash: string) => axios.post(`https://bitcoin-testnet4.gateway.tatum.io/`, {
+  "jsonrpc": "2.0",
+  "method": "getrawtransaction",
+  "params": [
+    hash,
+    true
+  ],
+  "id": 1
+}, {
+  headers: {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+    'x-api-key': TATUM_API_KEY
+  }
+}).then(response => response.data.result as RawTx).catch(error => {
+  console.error(error)
+  return null
+})
+
+const parseOpReturnData = (tx: RawTx): OpReturnData | null => {
+  if (!tx) {
+    return null
+  }
+  const opReturnVout = tx.vout.find(vout =>
+    vout.scriptPubKey.type === 'nulldata'
+    && vout.scriptPubKey.asm.split(" ")?.[1]?.startsWith('424d4350')
+  );
+  if (!opReturnVout) {
+    return null
+  }
+  const initiatorAddressVout = tx.vout.find(vout => vout.scriptPubKey.address !== undefined)
+  return {
+    txHash: tx.txid,
+    txHex: tx.hex,
+    voutIndex: opReturnVout.n,
+    voutValue: opReturnVout.value * 100_000_000,
+    scriptPubKeyAsm: opReturnVout.scriptPubKey.asm,
+    opReturnHex: opReturnVout.scriptPubKey.asm.split(' ')?.[1],
+    initiatorAddress: initiatorAddressVout?.scriptPubKey?.address ?? 'ERROR'
+  }
+}
+
+app.post('/broadcast', async (req: Request, res: Response) => {
+  try {
+    const { txHex } = req.body;
+    if (!txHex || typeof txHex !== 'string') {
+      throw new Error('invalid txHex');
+    }
+    const txHash = await axios.post(`https://bitcoin-testnet4.gateway.tatum.io/`, {
+      "jsonrpc": "2.0",
+      "method": "sendrawtransaction",
+      "params": [
+        txHex
+      ],
+      "id": 1
+    }, {
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'x-api-key': TATUM_API_KEY
+      }
+    }).then(response => response.data.result as string);
+    await delay(1100) // wait 1.1s
+    const rawTx = await getTx(txHash)
+    if (!rawTx) {
+      throw Error('Could not get raw tx')
+    }
+    const opReturnData = parseOpReturnData(rawTx)
+    opReturnCache.set(txHash, opReturnData)
+    return res.status(200).send({
+      success: true,
+      message: `Broadcasted transaction`,
+      ...opReturnData,
+      link: `https://mempool.space/testnet4/tx/preview#tx=${txHex}`
+    });
+  } catch (error) {
+    const casted = error as Partial<AxiosError>;
+    if (casted?.response) {
+      const errorText =
+        typeof casted.response.data === 'string'
+          ? casted.response.data
+          : JSON.stringify(casted.response.data);
+      return res.status(500).send({
+        success: false,
+        message: `HTTP ${casted.response.status}: ${errorText}`,
+      });
+    } else if (casted.request) {
+      return res.status(500).send({
+        success: false,
+        message: `Network error: ${casted.message}`,
+      });
+    } else {
+      return res.status(500).send({
+        success: false,
+        message: `Error: ${casted.message ?? JSON.stringify(casted)}`,
+      });
+    }
+  }
+});
+
 
 app.get('/mempool', async (req: Request, res: Response) => {
   try {
@@ -225,68 +353,17 @@ app.get('/mempool', async (req: Request, res: Response) => {
         'x-api-key': TATUM_API_KEY
       }
     }).then(response => response.data.result as Array<string>);
-    const missingTxHashes = tatumTxHashes.filter(txHash => !mempoolTxHashSet.has(txHash))
+    const missingTxHashes = tatumTxHashes.filter(txHash => !mempoolTxHashSet.has(txHash) && !opReturnCache.has(txHash))
     await delay(1100); // wait 1.1s to avoid ratelimit
-    const opReturns = new Set<{
-      txHash: string,
-      txHex: string,
-      voutIndex: number,
-      voutValue: number,
-      scriptPubKeyAsm: string,
-      opReturnHex: string
-    }>();
     for (let i = 0; i < missingTxHashes.length; i += 3) {
       const batch = missingTxHashes.slice(i, i + 3);
-      const txs = await Promise.all(batch.map(async (hash) => axios.post(`https://bitcoin-testnet4.gateway.tatum.io/`, {
-        "jsonrpc": "2.0",
-        "method": "getrawtransaction",
-        "params": [
-          hash,
-          true
-        ],
-        "id": 1
-      }, {
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'x-api-key': TATUM_API_KEY
-        }
-      }).then(response => response.data.result as {
-        txid: string,
-        vout: Array<{
-          value: number,
-          n: number,
-          scriptPubKey: {
-            asm: string,
-            type: string
-          }
-        }>,
-        hex: string,
-      }).catch(error => {
-        console.error(error)
-        return null
-      })));
+      const txs = await Promise.all(batch.map(getTx));
       for (const tx of txs) {
         if (!tx) {
           continue
         }
-        const opReturnVouts = tx.vout.filter(vout =>
-          vout.scriptPubKey.type === 'nulldata'
-          && vout.scriptPubKey.asm.split(" ")?.[1]?.startsWith('424d4350')
-        );
-        if (!opReturnVouts.length) {
-          continue
-        }
-        for (const vout of opReturnVouts) {
-          opReturns.add({
-            txHash: tx.txid,
-            txHex: tx.hex,
-            voutIndex: vout.n,
-            voutValue: vout.value * 100_000_000,
-            scriptPubKeyAsm: vout.scriptPubKey.asm,
-            opReturnHex: vout.scriptPubKey.asm.split(' ')?.[1]
-          })
-        }
+        const opReturnData = parseOpReturnData(tx)
+        opReturnCache.set(tx.txid, opReturnData)
       }
       if (i + 3 < missingTxHashes.length) {
         await delay(1100); // process max 3 requests per second
@@ -297,7 +374,7 @@ app.get('/mempool', async (req: Request, res: Response) => {
       mempoolCount: mempoolTxHashSet.size,
       tatumCount: tatumTxHashes.length,
       missingCount: missingTxHashes.length,
-      opReturns: Array.from(opReturns.values())
+      opReturns: Array.from(opReturnCache.values()).filter(opReturn => opReturn !== null)
     })
   } catch (error) {
     const casted = error as Partial<AxiosError>;
@@ -323,9 +400,11 @@ app.get('/mempool', async (req: Request, res: Response) => {
   }
 });
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`🚀 BMCP Bitcoin API running on http://localhost:${PORT}`);
   console.log(
     `📡 Protocol Magic: ${BMCP_PROTOCOL_MAGIC.toString('hex')} ("BMCP")`
   );
 });
+
+server.timeout = 10 * 60 * 1000 // 10 minutes in milliseconds
