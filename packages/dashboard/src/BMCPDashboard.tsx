@@ -183,7 +183,7 @@ export function BMCPDashboard() {
         throw new Error(JSON.stringify(response.error));
       }
       setSignedPsbt(response.result.psbt);
-      
+
       // Try to get txid from response if available
       if (response.result.txid) {
         setTransactionId(response.result.txid);
@@ -218,21 +218,22 @@ export function BMCPDashboard() {
       if (!response.ok) {
         // Try to get txHash from various sources
         let extractedTxHash = data.txHash || data.txid;
-        
+
         // Try to extract txid from error message (e.g., "rejecting replacement <txid>")
         if (!extractedTxHash && data.message) {
-          const txidMatch = data.message.match(/rejecting replacement ([a-f0-9]{64})/i) ||
-                           data.message.match(/([a-f0-9]{64})/);
+          const txidMatch =
+            data.message.match(/rejecting replacement ([a-f0-9]{64})/i) ||
+            data.message.match(/([a-f0-9]{64})/);
           if (txidMatch) {
             extractedTxHash = txidMatch[1];
           }
         }
-        
+
         // Use stored transactionId as fallback
         if (!extractedTxHash && transactionId) {
           extractedTxHash = transactionId;
         }
-        
+
         // If we have any txHash, show it
         if (extractedTxHash) {
           setTransactionId(extractedTxHash);
@@ -249,7 +250,7 @@ export function BMCPDashboard() {
           setLoading(false);
           return;
         }
-        
+
         throw new Error(
           data.message || data.error || 'Failed to broadcast transaction'
         );
@@ -259,7 +260,7 @@ export function BMCPDashboard() {
       if (data.txHash) {
         setTransactionId(data.txHash);
       }
-      
+
       setSuccess(JSON.stringify(data));
     } catch (err) {
       setError(
@@ -770,14 +771,14 @@ export function BMCPDashboard() {
                             🟠 Mempool.space
                           </a>
                           <a
-                            href={`https://explorer.titan.io/tx/${
+                            href={`https://bitcoinexplorer.titan.io/tx/${
                               JSON.parse(success).txHash
                             }`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition text-sm font-medium"
                           >
-                            🔷 Titan Explorer
+                            🔷 Titan Bitcoin Explorer
                           </a>
                         </div>
                       </div>
