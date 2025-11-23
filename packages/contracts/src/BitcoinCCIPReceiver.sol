@@ -81,25 +81,25 @@ contract BitcoinCREReceiver is IReceiverTemplate {
     BMCPPayload memory payload = abi.decode(report, (BMCPPayload));
     // BMCPCommand memory cmd = _decodeBMCP(report);
 
-    emit BMCPCommandReceived(payload.targetContract, payload.data);
     // cmd.btcTxHash = btcTxHash;
 
     // Validate command
-    // _validateCommand(cmd);
+    _validateCommand(payload);
 
     // Mark as executed
     // executedBtcTxs[btcTxHash] = true;
 
     // Mark nonce as used if present
-    // if (cmd.nonce > 0) {
-    //   usedNonces[cmd.targetContract][cmd.nonce] = true;
-    // }
+    if (payload.nonce > 0) {
+      usedNonces[payload.targetContract][payload.nonce] = true;
+    }
 
     // Emit received event
     // bytes4 functionSelector = bytes4(cmd.callData);
     // emit BMCPCommandReceived(cmd.targetContract, functionSelector);
+    emit BMCPCommandReceived(payload.targetContract, payload.data);
 
-    // _executeCommand(cmd);
+    _executeCommand(payload);
   }
 
   function _validateCommand(BMCPPayload memory cmd) internal view {

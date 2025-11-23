@@ -38,9 +38,7 @@ abstract contract IReceiverTemplate is IReceiver, Ownable {
     if (expectedWorkflowId != bytes32(0)) {
       (bytes32 workflowId, , ) = _decodeMetadata(metadata);
 
-      if (
-        expectedWorkflowId != bytes32(0) && workflowId != expectedWorkflowId
-      ) {
+      if (workflowId != expectedWorkflowId) {
         revert InvalidWorkflowId(workflowId, expectedWorkflowId);
       }
     }
