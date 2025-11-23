@@ -419,7 +419,7 @@ export function BMCPDashboard() {
             </label>
             <select
               onChange={(e) => setFunctionSignature(e.target.value)}
-              className="w-full px-4 py-3 border border-gray-300 text-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent mb-2"
+              className="w-full px-4 py-3 border border-gray-300 text-gray-800 bg-white rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent mb-2"
             >
               {COMMON_FUNCTIONS.map((fn) => (
                 <option key={fn.label} value={fn.value}>
@@ -432,7 +432,7 @@ export function BMCPDashboard() {
               value={functionSignature}
               onChange={(e) => setFunctionSignature(e.target.value)}
               placeholder="functionName(type1,type2,...)"
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-transparent font-mono text-sm"
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-800 bg-white placeholder-gray-400 focus:ring-2 focus:ring-orange-500 focus:border-transparent font-mono text-sm"
             />
             <p className="text-xs text-gray-500 mt-2">
               {!COMMON_FUNCTIONS.find(
@@ -453,7 +453,7 @@ export function BMCPDashboard() {
               onChange={(e) => setArgs(e.target.value)}
               rows={4}
               placeholder='["0x...", "1000000000000000000"]'
-              className="w-full px-4 py-3 border border-gray-300 text-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent font-mono text-sm"
+              className="w-full px-4 py-3 border border-gray-300 text-gray-800 bg-white placeholder-gray-400 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent font-mono text-sm"
             />
             <p className="text-xs text-gray-500 mt-2">
               Enter arguments as a JSON array matching the function signature
@@ -485,12 +485,12 @@ export function BMCPDashboard() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Fee Rate Override
                 </label>
-                <input
-                  type="number"
-                  value={feeRateOverride}
-                  onChange={(e) => setFeeRateOverride(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 text-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                />
+              <input
+                type="number"
+                value={feeRateOverride}
+                onChange={(e) => setFeeRateOverride(e.target.value)}
+                className="w-full px-4 py-3 border border-gray-300 text-gray-800 bg-white placeholder-gray-400 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+              />
               </div>
 
               {/* BMCP Data */}
@@ -498,12 +498,12 @@ export function BMCPDashboard() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   BMCP Data
                 </label>
-                <input
-                  type="string"
-                  value={sendBmcpData}
-                  onChange={(e) => setSendBmcpData(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 text-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                />
+              <input
+                type="string"
+                value={sendBmcpData}
+                onChange={(e) => setSendBmcpData(e.target.value)}
+                className="w-full px-4 py-3 border border-gray-300 text-gray-800 bg-white placeholder-gray-400 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent font-mono text-sm"
+              />
               </div>
             </div>
           </details>
