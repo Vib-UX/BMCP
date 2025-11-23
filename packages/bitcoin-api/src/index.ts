@@ -68,10 +68,27 @@ app.post('/psbt', async (req: Request, res: Response) => {
     ) {
       throw new Error('invalid sendBmcpData');
     }
-
     // Parse the payload
     const payloadBuffer = Buffer.from(sendBmcpData.slice(2), 'hex');
-
+    // Build OP_RETURN script with BMCP protocol magic
+    // Format: OP_RETURN <protocol_magic> <payload>
+    // If payload already has protocol magic (from BitcoinCommandEncoder.encodeBinary), use as-is
+    // Otherwise, prepend protocol magic
+    let fullData: Buffer;
+    // Check if payload already starts with BMCP magic (0x424D4350)
+    if (
+      payloadBuffer.length >= 4 &&
+      payloadBuffer[0] === 0x42 &&
+      payloadBuffer[1] === 0x4d &&
+      payloadBuffer[2] === 0x43 &&
+      payloadBuffer[3] === 0x50
+    ) {
+      // Already has protocol magic
+      fullData = payloadBuffer;
+    } else {
+      // Prepend protocol magic
+      fullData = Buffer.concat([BMCP_PROTOCOL_MAGIC, payloadBuffer]);
+    }
     const utxos = await axios
       .get(`https://mempool.space/testnet4/api/address/${address}/utxo`)
       .then(
@@ -106,7 +123,6 @@ app.post('/psbt', async (req: Request, res: Response) => {
         `Change amount ${changeAmount} is below dust limit. Need at least ${dustLimit} sats.`
       );
     }
-
     const psbt = new bitcoin.Psbt({ network });
     for (const utxo of utxos) {
       psbt.addInput({
@@ -118,43 +134,18 @@ app.post('/psbt', async (req: Request, res: Response) => {
         },
       });
     }
-
-    // Build OP_RETURN script with BMCP protocol magic
-    // Format: OP_RETURN <protocol_magic> <payload>
-    // If payload already has protocol magic (from BitcoinCommandEncoder.encodeBinary), use as-is
-    // Otherwise, prepend protocol magic
-    let fullData: Buffer;
-
-    // Check if payload already starts with BMCP magic (0x424D4350)
-    if (
-      payloadBuffer.length >= 4 &&
-      payloadBuffer[0] === 0x42 &&
-      payloadBuffer[1] === 0x4d &&
-      payloadBuffer[2] === 0x43 &&
-      payloadBuffer[3] === 0x50
-    ) {
-      // Already has protocol magic
-      fullData = payloadBuffer;
-    } else {
-      // Prepend protocol magic
-      fullData = Buffer.concat([BMCP_PROTOCOL_MAGIC, payloadBuffer]);
-    }
-
     const opReturnScript = bitcoin.script.compile([
       bitcoin.opcodes.OP_RETURN,
       fullData,
     ]);
-
     psbt.addOutput({
       script: opReturnScript,
       value: 0,
     });
-
     psbt.addOutput({
       address,
       value: changeAmount,
     });
-
     return res.status(200).send({
       success: true,
       message: `Found ${utxos.length} UTXOs totalling ${totalInput}, created transaction spending ${totalInput - changeAmount}`,
@@ -216,7 +207,7 @@ app.get('/health', (req: Request, res: Response) => {
     success: true,
     protocol: 'BMCP',
     protocolMagic: BMCP_PROTOCOL_MAGIC.toString('hex'),
-    opReturnCache: Array.from(opReturnCache.keys()),
+    opReturnCache: opReturnCache.size,
     version: '1.0.0',
   });
 })
@@ -273,7 +264,7 @@ const parseOpReturnData = (tx: RawTx): OpReturnData | null => {
     voutValue: opReturnVout.value * 100_000_000,
     scriptPubKeyAsm: opReturnVout.scriptPubKey.asm,
     opReturnHex: opReturnVout.scriptPubKey.asm.split(' ')?.[1],
-    initiatorAddress: initiatorAddressVout?.scriptPubKey?.address ?? 'ERROR'
+    initiatorAddress: initiatorAddressVout?.scriptPubKey?.address ?? 'UNKNOWN'
   }
 }
 
@@ -301,7 +292,6 @@ app.post('/broadcast', async (req: Request, res: Response) => {
         'x-api-key': TATUM_API_KEY
       }
     }).then(response => response.data.result as string);
-    console.log(txHash)
     await delay(1100) // wait 1.1s
     const rawTx = await getTx(txHash)
     if (!rawTx) {

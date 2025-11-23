@@ -25,26 +25,15 @@ const SUPPORTED_CHAINS = [
   },
 ];
 
-// Common function signatures for quick selection
-const COMMON_FUNCTIONS = [
-  { label: '<custom>', value: '' },
-  { label: 'deposit(address,uint256)', value: 'deposit(address,uint256)' },
-  { label: 'transfer(address,uint256)', value: 'transfer(address,uint256)' },
-  { label: 'execute(address,uint256,bytes)', value: 'execute(address,uint256,bytes)' },
-  { label: 'mint(address,uint256)', value: 'mint(address,uint256)' },
-  { label: 'swap(address,address,uint256)', value: 'swap(address,address,uint256)' },
-];
-
 export function BMCPDashboard() {
   const [bitcoinAddress, setBitcoinAddress] = useState<string>("")
-  const [sendBmcpData, setSendBmcpData] = useState<string>("")
   const [feeRateOverride, setFeeRateOverride] = useState<string>("0")
   const [unsignedPsbt, setUnsignedPsbt] = useState<string>("")
   const [psbtInputs, setPsbtInputs] = useState<Array<number>>([])
   const [signedPsbt, setSignedPsbt] = useState<string>("")
   const [selectedChain, setSelectedChain] = useState(SUPPORTED_CHAINS[0]);
   const [receiverAddress, setReceiverAddress] = useState('0x0000000000000000000000000000000000000000');
-  const [functionSignature, setFunctionSignature] = useState(COMMON_FUNCTIONS[1].value);
+  const [functionSignature, setFunctionSignature] = useState('transfer(address,uint256)');
   const [args, setArgs] = useState('["0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb", "1000000000000000000"]');
   const [gasLimit, setGasLimit] = useState('300000');
   const [loading, setLoading] = useState(false);
@@ -93,15 +82,15 @@ export function BMCPDashboard() {
       if (!bitcoinAddress?.length) {
         throw new Error('Xverse not connected')
       }
-      if (!sendBmcpData?.length) {
-        throw new Error('No sendBmcpData')
+      if (!encodedPreview?.opReturnScript?.length) {
+        throw new Error('No opReturnScript')
       }
       const response = await fetch("http://localhost:3000/psbt", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           address: bitcoinAddress,
-          sendBmcpData,
+          sendBmcpData: encodedPreview.opReturnScript,
           feeRateOverride: Number(feeRateOverride) >= 1 ? Number(feeRateOverride) : undefined
         }),
       })
@@ -303,16 +292,6 @@ export function BMCPDashboard() {
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Function Signature
             </label>
-            <select
-              onChange={(e) => setFunctionSignature(e.target.value)}
-              className="w-full px-4 py-3 border border-gray-300 text-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent mb-2"
-            >
-              {COMMON_FUNCTIONS.map((fn) => (
-                <option key={fn.label} value={fn.value}>
-                  {fn.label}
-                </option>
-              ))}
-            </select>
             <input
               type="text"
               value={functionSignature}
@@ -330,12 +309,12 @@ export function BMCPDashboard() {
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Function Arguments (JSON Array)
             </label>
-            <textarea
+            <input
+              type="text"
               value={args}
               onChange={(e) => setArgs(e.target.value)}
-              rows={4}
               placeholder='["0x...", "1000000000000000000"]'
-              className="w-full px-4 py-3 border border-gray-300 text-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent font-mono text-sm"
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-transparent font-mono text-sm"
             />
             <p className="text-xs text-gray-500 mt-2">
               Enter arguments as a JSON array matching the function signature types
@@ -364,19 +343,6 @@ export function BMCPDashboard() {
               type="number"
               value={feeRateOverride}
               onChange={(e) => setFeeRateOverride(e.target.value)}
-              className="w-full px-4 py-3 border border-gray-300 text-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-            />
-          </div>
-
-          {/* BMCP Data */}
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              BMCP Data
-            </label>
-            <input
-              type="string"
-              value={sendBmcpData}
-              onChange={(e) => setSendBmcpData(e.target.value)}
               className="w-full px-4 py-3 border border-gray-300 text-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
             />
           </div>
