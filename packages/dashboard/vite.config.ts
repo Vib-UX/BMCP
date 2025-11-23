@@ -8,6 +8,10 @@ export default defineConfig({
     port: 8080,
     open: true
   },
+  build: {
+    outDir: '../../dist',
+    emptyOutDir: true,
+  },
   define: {
     'global': 'globalThis',
   },
