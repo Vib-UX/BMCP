@@ -5,11 +5,11 @@ import {IERC165} from '@openzeppelin/contracts/utils/introspection/IERC165.sol';
 import {IReceiverTemplate} from './IReceiverTemplate.sol';
 
 /**
- * @title BitcoinCCIPReceiver
+ * @title BMCPCREReceiver
  * @notice Base contract for receiving cross-chain messages from Bitcoin via CRE
  * @dev Extends IReceiverTemplate and adds BMCP validation
  */
-contract BitcoinCREReceiver is IReceiverTemplate {
+contract BMCPCREReceiver is IReceiverTemplate {
   // Protocol constants matching encoder
   uint32 public constant PROTOCOL_MAGIC = 0x424D4350; // "BMCP"
   uint8 public constant SUPPORTED_VERSION = 1;
