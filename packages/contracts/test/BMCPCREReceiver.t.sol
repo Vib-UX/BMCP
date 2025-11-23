@@ -2,7 +2,7 @@
 pragma solidity ^0.8.28;
 
 import {Test, console} from 'forge-std/Test.sol';
-import {BitcoinCREReceiver} from '../src/BitcoinCCIPReceiver.sol';
+import {BMCPCREReceiver} from '../src/BMCPCREReceiver.sol';
 import {IReceiverTemplate} from '../src/IReceiverTemplate.sol';
 
 contract MockTargetContract {
@@ -24,15 +24,15 @@ contract MockTargetContract {
   }
 }
 
-contract BitcoinCREReceiverTest is Test {
-  BitcoinCREReceiver public receiver;
+contract BMCPCREReceiverTest is Test {
+  BMCPCREReceiver public receiver;
   MockTargetContract public target;
 
   address public forwarder = address(0x1234);
   bytes32 public workflowId = keccak256('test-workflow');
 
   function setUp() public {
-    receiver = new BitcoinCREReceiver(forwarder, workflowId);
+    receiver = new BMCPCREReceiver(forwarder, workflowId);
     target = new MockTargetContract();
   }
 
@@ -44,7 +44,7 @@ contract BitcoinCREReceiverTest is Test {
   function test_BasicCommandExecution() public {
     bytes memory callData = abi.encodeWithSelector(MockTargetContract.setValue.selector, 42);
 
-    BitcoinCREReceiver.BMCPPayload memory payload = BitcoinCREReceiver.BMCPPayload({
+    BMCPCREReceiver.BMCPPayload memory payload = BMCPCREReceiver.BMCPPayload({
       version: 1,
       chainSelector: 1000,
       nonce: 0,
@@ -53,21 +53,19 @@ contract BitcoinCREReceiverTest is Test {
       data: callData
     });
 
-    // Double-encode to match CRE behavior (outer bytes wrapper + inner struct)
-    bytes memory innerReport = abi.encode(payload);
-    bytes memory report = abi.encode(innerReport);
+    bytes memory report = abi.encode(payload);
     bytes memory metadata = _encodeMetadata(workflowId, bytes10('test'), address(this));
 
     vm.prank(forwarder);
     vm.expectEmit(true, false, false, true);
-    emit BitcoinCREReceiver.BMCPCommandReceived(address(target), callData);
+    emit BMCPCREReceiver.BMCPCommandReceived(address(target), callData);
     receiver.onReport(metadata, report);
   }
 
   function test_CommandWithNonce() public {
     bytes memory callData = abi.encodeWithSelector(MockTargetContract.setValue.selector, 100);
 
-    BitcoinCREReceiver.BMCPPayload memory payload = BitcoinCREReceiver.BMCPPayload({
+    BMCPCREReceiver.BMCPPayload memory payload = BMCPCREReceiver.BMCPPayload({
       version: 1,
       chainSelector: 1000,
       nonce: 5,
@@ -76,7 +74,7 @@ contract BitcoinCREReceiverTest is Test {
       data: callData
     });
 
-    bytes memory report = abi.encode(abi.encode(payload));
+    bytes memory report = abi.encode(payload);
     bytes memory metadata = _encodeMetadata(workflowId, bytes10('test'), address(this));
 
     vm.prank(forwarder);
@@ -87,7 +85,7 @@ contract BitcoinCREReceiverTest is Test {
     bytes memory callData = abi.encodeWithSelector(MockTargetContract.setValue.selector, 200);
     uint32 futureDeadline = uint32(block.timestamp + 1 hours);
 
-    BitcoinCREReceiver.BMCPPayload memory payload = BitcoinCREReceiver.BMCPPayload({
+    BMCPCREReceiver.BMCPPayload memory payload = BMCPCREReceiver.BMCPPayload({
       version: 1,
       chainSelector: 1000,
       nonce: 0,
@@ -96,7 +94,7 @@ contract BitcoinCREReceiverTest is Test {
       data: callData
     });
 
-    bytes memory report = abi.encode(abi.encode(payload));
+    bytes memory report = abi.encode(payload);
     bytes memory metadata = _encodeMetadata(workflowId, bytes10('test'), address(this));
 
     vm.prank(forwarder);
@@ -107,7 +105,7 @@ contract BitcoinCREReceiverTest is Test {
     bytes memory callData = abi.encodeWithSelector(MockTargetContract.setValue.selector, 300);
     uint32 futureDeadline = uint32(block.timestamp + 2 hours);
 
-    BitcoinCREReceiver.BMCPPayload memory payload = BitcoinCREReceiver.BMCPPayload({
+    BMCPCREReceiver.BMCPPayload memory payload = BMCPCREReceiver.BMCPPayload({
       version: 1,
       chainSelector: 1000,
       nonce: 10,
@@ -116,7 +114,7 @@ contract BitcoinCREReceiverTest is Test {
       data: callData
     });
 
-    bytes memory report = abi.encode(abi.encode(payload));
+    bytes memory report = abi.encode(payload);
     bytes memory metadata = _encodeMetadata(workflowId, bytes10('test'), address(this));
 
     vm.prank(forwarder);
@@ -126,7 +124,7 @@ contract BitcoinCREReceiverTest is Test {
   function test_MultipleChainSelectors() public {
     bytes memory callData = abi.encodeWithSelector(MockTargetContract.setValue.selector, 500);
 
-    BitcoinCREReceiver.BMCPPayload memory payload1 = BitcoinCREReceiver.BMCPPayload({
+    BMCPCREReceiver.BMCPPayload memory payload1 = BMCPCREReceiver.BMCPPayload({
       version: 1,
       chainSelector: 1, // Ethereum
       nonce: 0,
@@ -135,7 +133,7 @@ contract BitcoinCREReceiverTest is Test {
       data: callData
     });
 
-    BitcoinCREReceiver.BMCPPayload memory payload2 = BitcoinCREReceiver.BMCPPayload({
+    BMCPCREReceiver.BMCPPayload memory payload2 = BMCPCREReceiver.BMCPPayload({
       version: 1,
       chainSelector: 10, // Optimism
       nonce: 0,
@@ -147,16 +145,16 @@ contract BitcoinCREReceiverTest is Test {
     bytes memory metadata = _encodeMetadata(workflowId, bytes10('test'), address(this));
 
     vm.prank(forwarder);
-    receiver.onReport(metadata, abi.encode(abi.encode(payload1)));
+    receiver.onReport(metadata, abi.encode(payload1));
 
     vm.prank(forwarder);
-    receiver.onReport(metadata, abi.encode(abi.encode(payload2)));
+    receiver.onReport(metadata, abi.encode(payload2));
   }
 
   function test_InvalidSenderReverts() public {
     bytes memory callData = abi.encodeWithSelector(MockTargetContract.setValue.selector, 42);
 
-    BitcoinCREReceiver.BMCPPayload memory payload = BitcoinCREReceiver.BMCPPayload({
+    BMCPCREReceiver.BMCPPayload memory payload = BMCPCREReceiver.BMCPPayload({
       version: 1,
       chainSelector: 1000,
       nonce: 0,
@@ -165,7 +163,7 @@ contract BitcoinCREReceiverTest is Test {
       data: callData
     });
 
-    bytes memory report = abi.encode(abi.encode(payload));
+    bytes memory report = abi.encode(payload);
     bytes memory metadata = _encodeMetadata(workflowId, bytes10('test'), address(this));
 
     address wrongSender = address(0x9999);
@@ -177,7 +175,7 @@ contract BitcoinCREReceiverTest is Test {
   function test_InvalidWorkflowIdReverts() public {
     bytes memory callData = abi.encodeWithSelector(MockTargetContract.setValue.selector, 42);
 
-    BitcoinCREReceiver.BMCPPayload memory payload = BitcoinCREReceiver.BMCPPayload({
+    BMCPCREReceiver.BMCPPayload memory payload = BMCPCREReceiver.BMCPPayload({
       version: 1,
       chainSelector: 1000,
       nonce: 0,
@@ -186,7 +184,7 @@ contract BitcoinCREReceiverTest is Test {
       data: callData
     });
 
-    bytes memory report = abi.encode(abi.encode(payload));
+    bytes memory report = abi.encode(payload);
     bytes32 wrongWorkflowId = keccak256('wrong-workflow');
     bytes memory metadata = _encodeMetadata(wrongWorkflowId, bytes10('test'), address(this));
 
