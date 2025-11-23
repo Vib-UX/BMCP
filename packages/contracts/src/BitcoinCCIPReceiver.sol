@@ -193,10 +193,7 @@ contract BitcoinCREReceiver is IReceiverTemplate {
     }
   }
 
-  function _handleExecutionFailure(
-    address target,
-    bytes memory result
-  ) internal pure {
+  function _handleExecutionFailure(address, bytes memory result) internal pure {
     // Try to decode revert reason
     if (result.length > 0) {
       // Check if it's a standard Error(string)

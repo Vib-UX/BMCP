@@ -36,11 +36,7 @@ abstract contract IReceiverTemplate is IReceiver, Ownable {
 
     // Security Checks 2-4: Verify workflow identity - ID, owner, and/or name (if any are configured)
     if (expectedWorkflowId != bytes32(0)) {
-      (
-        bytes32 workflowId,
-        bytes10 workflowName,
-        address workflowOwner
-      ) = _decodeMetadata(metadata);
+      (bytes32 workflowId, , ) = _decodeMetadata(metadata);
 
       if (
         expectedWorkflowId != bytes32(0) && workflowId != expectedWorkflowId
