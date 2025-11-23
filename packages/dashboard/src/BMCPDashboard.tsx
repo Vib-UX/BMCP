@@ -643,31 +643,115 @@ export function BMCPDashboard() {
           )}
 
           {success && (
-            <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
-              <div className="flex items-start">
-                <span className="text-green-600 text-2xl mr-3">✅</span>
-                <div className="flex-1">
-                  <strong className="text-green-700 text-lg">
-                    Transaction Broadcast Successfully!
-                  </strong>
-                  <div className="mt-2">
-                    <a
-                      href={JSON.parse(success).link}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 hover:text-blue-800 underline font-mono text-sm"
-                    >
-                      {JSON.parse(success).txHash}
-                    </a>
+            <div className="mt-4 space-y-4">
+              {/* Bitcoin Transaction Success */}
+              <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                <div className="flex items-start">
+                  <span className="text-green-600 text-2xl mr-3">✅</span>
+                  <div className="flex-1">
+                    <strong className="text-green-700 text-lg">
+                      Bitcoin Transaction Broadcast Successfully!
+                    </strong>
+                    <p className="text-sm text-gray-600 mt-1">
+                      Your cross-chain message has been embedded in a Bitcoin transaction
+                    </p>
+                    
+                    {/* Transaction Links */}
+                    <div className="mt-3 space-y-2">
+                      <div>
+                        <span className="text-xs text-gray-500 block mb-1">Bitcoin Transaction:</span>
+                        <div className="flex gap-2 flex-wrap">
+                          <a
+                            href={`https://mempool.space/testnet4/tx/${JSON.parse(success).txHash}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 px-3 py-1 bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200 transition text-sm font-medium"
+                          >
+                            🟠 Mempool.space
+                          </a>
+                          <a
+                            href={`https://explorer.titan.io/tx/${JSON.parse(success).txHash}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition text-sm font-medium"
+                          >
+                            🔷 Titan Explorer
+                          </a>
+                        </div>
+                      </div>
+                      <div className="font-mono text-xs text-gray-500 break-all bg-white p-2 rounded border">
+                        {JSON.parse(success).txHash}
+                      </div>
+                    </div>
+
+                    <details className="mt-3">
+                      <summary className="cursor-pointer text-xs text-gray-500 hover:text-gray-700">
+                        View raw response
+                      </summary>
+                      <pre className="mt-2 text-xs text-gray-600 bg-white p-2 rounded border overflow-auto">
+                        {JSON.stringify(JSON.parse(success), null, 2)}
+                      </pre>
+                    </details>
                   </div>
-                  <details className="mt-3">
-                    <summary className="cursor-pointer text-xs text-gray-500 hover:text-gray-700">
-                      View full response
-                    </summary>
-                    <pre className="mt-2 text-xs text-gray-600 bg-white p-2 rounded border overflow-auto">
-                      {JSON.stringify(JSON.parse(success), null, 2)}
-                    </pre>
-                  </details>
+                </div>
+              </div>
+
+              {/* CCIP Processing Status */}
+              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="flex items-start">
+                  <div className="mr-3 mt-1">
+                    <svg className="animate-spin h-5 w-5 text-blue-600" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                  </div>
+                  <div className="flex-1">
+                    <strong className="text-blue-700 text-base">
+                      ⏳ Processing Cross-Chain Message
+                    </strong>
+                    <div className="mt-2 space-y-2 text-sm text-gray-700">
+                      <div className="flex items-center gap-2">
+                        <span className="text-blue-600">🔄</span>
+                        <span>Waiting for Bitcoin confirmations (~6 blocks, ~60 minutes)</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-blue-600">🔍</span>
+                        <span>BMCP Relayer will decode OP_RETURN data</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-blue-600">⚡</span>
+                        <span>CCIP Router will process the message on {selectedChain.name}</span>
+                      </div>
+                    </div>
+                    
+                    <div className="mt-3 p-3 bg-white rounded-lg border border-blue-200">
+                      <div className="text-xs text-gray-500 mb-1">Expected EVM Transaction:</div>
+                      <div className="text-xs text-gray-600">
+                        Once processed, your message will be executed on <strong>{selectedChain.name}</strong>
+                      </div>
+                      <a
+                        href="https://sepolia.etherscan.io/address/0x15fC6ae953E024d975e77382eEeC56A9101f9F88"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 mt-2 text-xs text-blue-600 hover:text-blue-800 underline"
+                      >
+                        View Receiver Contract on Etherscan →
+                      </a>
+                    </div>
+
+                    <details className="mt-3">
+                      <summary className="cursor-pointer text-xs text-gray-500 hover:text-gray-700">
+                        📖 What happens next?
+                      </summary>
+                      <div className="mt-2 text-xs text-gray-600 bg-white p-3 rounded border space-y-2">
+                        <p><strong>1. Bitcoin Confirmation:</strong> Your transaction needs 6 block confirmations on Bitcoin Testnet4</p>
+                        <p><strong>2. Relayer Detection:</strong> The BMCP Relayer monitors Bitcoin blocks and detects your OP_RETURN data</p>
+                        <p><strong>3. Message Decoding:</strong> The relayer decodes your BMCP message (chain selector, contract, function call)</p>
+                        <p><strong>4. CCIP Processing:</strong> The message is sent to the CCIP router on the destination chain</p>
+                        <p><strong>5. Execution:</strong> Your function call is executed on the receiver contract at <code className="text-purple-600">{receiverAddress}</code></p>
+                      </div>
+                    </details>
+                  </div>
                 </div>
               </div>
             </div>
