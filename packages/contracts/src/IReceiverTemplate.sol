@@ -11,8 +11,6 @@ import {Ownable} from '@openzeppelin/contracts/access/Ownable.sol';
 abstract contract IReceiverTemplate is IReceiver, Ownable {
   // Optional permission fields (all default to zero = disabled)
   address public forwarderAddress; // If set, only this address can call onReport
-  address public expectedAuthor; // If set, only reports from this workflow owner are accepted
-  bytes10 public expectedWorkflowName; // If set, only reports with this workflow name are accepted
   bytes32 public expectedWorkflowId; // If set, only reports from this specific workflow ID are accepted
 
   // Custom errors
@@ -37,30 +35,13 @@ abstract contract IReceiverTemplate is IReceiver, Ownable {
     }
 
     // Security Checks 2-4: Verify workflow identity - ID, owner, and/or name (if any are configured)
-    if (
-      expectedWorkflowId != bytes32(0) ||
-      expectedAuthor != address(0) ||
-      expectedWorkflowName != bytes10(0)
-    ) {
-      (
-        bytes32 workflowId,
-        bytes10 workflowName,
-        address workflowOwner
-      ) = _decodeMetadata(metadata);
+    if (expectedWorkflowId != bytes32(0)) {
+      (bytes32 workflowId, , ) = _decodeMetadata(metadata);
 
       if (
         expectedWorkflowId != bytes32(0) && workflowId != expectedWorkflowId
       ) {
         revert InvalidWorkflowId(workflowId, expectedWorkflowId);
-      }
-      if (expectedAuthor != address(0) && workflowOwner != expectedAuthor) {
-        revert InvalidAuthor(workflowOwner, expectedAuthor);
-      }
-      if (
-        expectedWorkflowName != bytes10(0) &&
-        workflowName != expectedWorkflowName
-      ) {
-        revert InvalidWorkflowName(workflowName, expectedWorkflowName);
       }
     }
 
@@ -71,32 +52,6 @@ abstract contract IReceiverTemplate is IReceiver, Ownable {
   /// @param _forwarder The new forwarder address (use address(0) to disable this check)
   function setForwarderAddress(address _forwarder) external onlyOwner {
     forwarderAddress = _forwarder;
-  }
-
-  /// @notice Updates the expected workflow owner address
-  /// @param _author The new expected author address (use address(0) to disable this check)
-  function setExpectedAuthor(address _author) external onlyOwner {
-    expectedAuthor = _author;
-  }
-
-  /// @notice Updates the expected workflow name from a plaintext string
-  /// @param _name The workflow name as a string (use empty string "" to disable this check)
-  /// @dev The name is hashed using SHA256 and truncated
-  function setExpectedWorkflowName(string calldata _name) external onlyOwner {
-    if (bytes(_name).length == 0) {
-      expectedWorkflowName = bytes10(0);
-      return;
-    }
-
-    // Convert workflow name to bytes10:
-    // SHA256 hash → hex encode → take first 10 chars → hex encode those chars
-    bytes32 hash = sha256(bytes(_name));
-    bytes memory hexString = _bytesToHexString(abi.encodePacked(hash));
-    bytes memory first10 = new bytes(10);
-    for (uint i = 0; i < 10; i++) {
-      first10[i] = hexString[i];
-    }
-    expectedWorkflowName = bytes10(first10);
   }
 
   /// @notice Updates the expected workflow ID
