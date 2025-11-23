@@ -1,160 +1,211 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import {Test} from 'forge-std/Test.sol';
-import {BMCPTestHelpers} from './helpers/BMCPTestHelpers.sol';
+import {Test, console} from 'forge-std/Test.sol';
+import {BitcoinCREReceiver} from '../src/BitcoinCCIPReceiver.sol';
+import {IReceiverTemplate} from '../src/IReceiverTemplate.sol';
 
-/**
- * @title BitcoinCREReceiverTest
- * @notice Test suite for BitcoinCREReceiver contract and BMCP encoding helpers
- */
+contract MockTargetContract {
+  uint256 public value;
+  address public lastCaller;
+  bytes public lastData;
+
+  event FunctionCalled(uint256 newValue, address caller);
+
+  function setValue(uint256 _value) external {
+    value = _value;
+    lastCaller = msg.sender;
+    lastData = msg.data;
+    emit FunctionCalled(_value, msg.sender);
+  }
+
+  function getValue() external view returns (uint256) {
+    return value;
+  }
+}
+
 contract BitcoinCREReceiverTest is Test {
-  using BMCPTestHelpers for *;
+  BitcoinCREReceiver public receiver;
+  MockTargetContract public target;
 
-  // Test constants
-  address constant TEST_TARGET = 0x1234567890123456789012345678901234567890;
-  bytes4 constant TEST_FUNCTION_SELECTOR = 0x12345678;
+  address public forwarder = address(0x1234);
+  bytes32 public workflowId = keccak256('test-workflow');
 
-  function test_encodeBMCPCommand_BasicPayload() public pure {
-    bytes memory callData = abi.encodePacked(TEST_FUNCTION_SELECTOR);
-    bytes memory encoded = BMCPTestHelpers.encodeBMCPCommand(
-      TEST_TARGET,
-      callData
-    );
+  function setUp() public {
+    receiver = new BitcoinCREReceiver(forwarder, workflowId);
+    target = new MockTargetContract();
+  }
 
-    // Verify total length: 4 (magic) + 1 (version) + 20 (contract) + 2 (length) + 4 (callData) = 31 bytes
-    assertEq(encoded.length, 31);
+  function test_DeploymentSetsCorrectParameters() public view {
+    assertEq(receiver.forwarderAddress(), forwarder);
+    assertEq(receiver.expectedWorkflowId(), workflowId);
+  }
 
-    // Verify protocol magic (first 4 bytes)
-    bytes4 magic = bytes4(
-      bytes.concat(encoded[0], encoded[1], encoded[2], encoded[3])
-    );
-    assertEq(uint32(magic), BMCPTestHelpers.PROTOCOL_MAGIC);
+  function test_BasicCommandExecution() public {
+    bytes memory callData = abi.encodeWithSelector(MockTargetContract.setValue.selector, 42);
 
-    // Verify version (byte 4)
-    assertEq(uint8(encoded[4]), BMCPTestHelpers.SUPPORTED_VERSION);
+    BitcoinCREReceiver.BMCPPayload memory payload = BitcoinCREReceiver.BMCPPayload({
+      version: 1,
+      chainSelector: 1000,
+      nonce: 0,
+      deadline: 0,
+      targetContract: address(target),
+      data: callData
+    });
 
-    // Verify target contract (bytes 5-24)
-    address decodedTarget;
+    // Double-encode to match CRE behavior (outer bytes wrapper + inner struct)
+    bytes memory innerReport = abi.encode(payload);
+    bytes memory report = abi.encode(innerReport);
+    bytes memory metadata = _encodeMetadata(workflowId, bytes10('test'), address(this));
+
+    vm.prank(forwarder);
+    vm.expectEmit(true, false, false, true);
+    emit BitcoinCREReceiver.BMCPCommandReceived(address(target), callData);
+    receiver.onReport(metadata, report);
+  }
+
+  function test_CommandWithNonce() public {
+    bytes memory callData = abi.encodeWithSelector(MockTargetContract.setValue.selector, 100);
+
+    BitcoinCREReceiver.BMCPPayload memory payload = BitcoinCREReceiver.BMCPPayload({
+      version: 1,
+      chainSelector: 1000,
+      nonce: 5,
+      deadline: 0,
+      targetContract: address(target),
+      data: callData
+    });
+
+    bytes memory report = abi.encode(abi.encode(payload));
+    bytes memory metadata = _encodeMetadata(workflowId, bytes10('test'), address(this));
+
+    vm.prank(forwarder);
+    receiver.onReport(metadata, report);
+  }
+
+  function test_CommandWithDeadline() public {
+    bytes memory callData = abi.encodeWithSelector(MockTargetContract.setValue.selector, 200);
+    uint32 futureDeadline = uint32(block.timestamp + 1 hours);
+
+    BitcoinCREReceiver.BMCPPayload memory payload = BitcoinCREReceiver.BMCPPayload({
+      version: 1,
+      chainSelector: 1000,
+      nonce: 0,
+      deadline: futureDeadline,
+      targetContract: address(target),
+      data: callData
+    });
+
+    bytes memory report = abi.encode(abi.encode(payload));
+    bytes memory metadata = _encodeMetadata(workflowId, bytes10('test'), address(this));
+
+    vm.prank(forwarder);
+    receiver.onReport(metadata, report);
+  }
+
+  function test_CommandWithNonceAndDeadline() public {
+    bytes memory callData = abi.encodeWithSelector(MockTargetContract.setValue.selector, 300);
+    uint32 futureDeadline = uint32(block.timestamp + 2 hours);
+
+    BitcoinCREReceiver.BMCPPayload memory payload = BitcoinCREReceiver.BMCPPayload({
+      version: 1,
+      chainSelector: 1000,
+      nonce: 10,
+      deadline: futureDeadline,
+      targetContract: address(target),
+      data: callData
+    });
+
+    bytes memory report = abi.encode(abi.encode(payload));
+    bytes memory metadata = _encodeMetadata(workflowId, bytes10('test'), address(this));
+
+    vm.prank(forwarder);
+    receiver.onReport(metadata, report);
+  }
+
+  function test_MultipleChainSelectors() public {
+    bytes memory callData = abi.encodeWithSelector(MockTargetContract.setValue.selector, 500);
+
+    BitcoinCREReceiver.BMCPPayload memory payload1 = BitcoinCREReceiver.BMCPPayload({
+      version: 1,
+      chainSelector: 1, // Ethereum
+      nonce: 0,
+      deadline: 0,
+      targetContract: address(target),
+      data: callData
+    });
+
+    BitcoinCREReceiver.BMCPPayload memory payload2 = BitcoinCREReceiver.BMCPPayload({
+      version: 1,
+      chainSelector: 10, // Optimism
+      nonce: 0,
+      deadline: 0,
+      targetContract: address(target),
+      data: callData
+    });
+
+    bytes memory metadata = _encodeMetadata(workflowId, bytes10('test'), address(this));
+
+    vm.prank(forwarder);
+    receiver.onReport(metadata, abi.encode(abi.encode(payload1)));
+
+    vm.prank(forwarder);
+    receiver.onReport(metadata, abi.encode(abi.encode(payload2)));
+  }
+
+  function test_InvalidSenderReverts() public {
+    bytes memory callData = abi.encodeWithSelector(MockTargetContract.setValue.selector, 42);
+
+    BitcoinCREReceiver.BMCPPayload memory payload = BitcoinCREReceiver.BMCPPayload({
+      version: 1,
+      chainSelector: 1000,
+      nonce: 0,
+      deadline: 0,
+      targetContract: address(target),
+      data: callData
+    });
+
+    bytes memory report = abi.encode(abi.encode(payload));
+    bytes memory metadata = _encodeMetadata(workflowId, bytes10('test'), address(this));
+
+    address wrongSender = address(0x9999);
+    vm.prank(wrongSender);
+    vm.expectRevert(abi.encodeWithSelector(IReceiverTemplate.InvalidSender.selector, wrongSender, forwarder));
+    receiver.onReport(metadata, report);
+  }
+
+  function test_InvalidWorkflowIdReverts() public {
+    bytes memory callData = abi.encodeWithSelector(MockTargetContract.setValue.selector, 42);
+
+    BitcoinCREReceiver.BMCPPayload memory payload = BitcoinCREReceiver.BMCPPayload({
+      version: 1,
+      chainSelector: 1000,
+      nonce: 0,
+      deadline: 0,
+      targetContract: address(target),
+      data: callData
+    });
+
+    bytes memory report = abi.encode(abi.encode(payload));
+    bytes32 wrongWorkflowId = keccak256('wrong-workflow');
+    bytes memory metadata = _encodeMetadata(wrongWorkflowId, bytes10('test'), address(this));
+
+    vm.prank(forwarder);
+    vm.expectRevert(abi.encodeWithSelector(IReceiverTemplate.InvalidWorkflowId.selector, wrongWorkflowId, workflowId));
+    receiver.onReport(metadata, report);
+  }
+
+  function _encodeMetadata(
+    bytes32 _workflowId,
+    bytes10 _workflowName,
+    address _workflowOwner
+  ) internal pure returns (bytes memory) {
+    bytes memory metadata = new bytes(62);
     assembly {
-      decodedTarget := mload(add(encoded, 25)) // 32 byte offset - 12 bytes + 5 bytes into data
+      mstore(add(metadata, 32), _workflowId)
+      mstore(add(metadata, 64), _workflowName)
+      mstore(add(metadata, 74), shl(mul(12, 8), _workflowOwner))
     }
-    assertEq(decodedTarget, TEST_TARGET);
-
-    // Verify data length (bytes 25-26)
-    uint16 dataLength = (uint16(uint8(encoded[25])) << 8) |
-      uint16(uint8(encoded[26]));
-    assertEq(dataLength, 4);
-  }
-
-  function test_encodeBMCPCommand_WithNonce() public pure {
-    bytes memory callData = abi.encodePacked(TEST_FUNCTION_SELECTOR);
-    uint32 nonce = 12345;
-
-    bytes memory encoded = BMCPTestHelpers.encodeBMCPCommand(
-      TEST_TARGET,
-      callData,
-      nonce,
-      0
-    );
-
-    // Verify total length includes nonce: 31 + 4 = 35 bytes
-    assertEq(encoded.length, 35);
-
-    // Verify nonce is at the end (last 4 bytes)
-    uint32 decodedNonce = (uint32(uint8(encoded[31])) << 24) |
-      (uint32(uint8(encoded[32])) << 16) |
-      (uint32(uint8(encoded[33])) << 8) |
-      uint32(uint8(encoded[34]));
-    assertEq(decodedNonce, nonce);
-  }
-
-  function test_encodeBMCPCommand_WithDeadline() public pure {
-    bytes memory callData = abi.encodePacked(TEST_FUNCTION_SELECTOR);
-    uint32 deadline = 1700000000;
-
-    bytes memory encoded = BMCPTestHelpers.encodeBMCPCommand(
-      TEST_TARGET,
-      callData,
-      0,
-      deadline
-    );
-
-    // Verify total length includes deadline: 31 + 4 = 35 bytes
-    assertEq(encoded.length, 35);
-
-    // Verify deadline is at the end (last 4 bytes)
-    uint32 decodedDeadline = (uint32(uint8(encoded[31])) << 24) |
-      (uint32(uint8(encoded[32])) << 16) |
-      (uint32(uint8(encoded[33])) << 8) |
-      uint32(uint8(encoded[34]));
-    assertEq(decodedDeadline, deadline);
-  }
-
-  function test_encodeBMCPCommand_WithNonceAndDeadline() public pure {
-    bytes memory callData = abi.encodePacked(TEST_FUNCTION_SELECTOR);
-    uint32 nonce = 12345;
-    uint32 deadline = 1700000000;
-
-    bytes memory encoded = BMCPTestHelpers.encodeBMCPCommand(
-      TEST_TARGET,
-      callData,
-      nonce,
-      deadline
-    );
-
-    // Verify total length includes both: 31 + 4 + 4 = 39 bytes
-    assertEq(encoded.length, 39);
-
-    // Verify nonce (bytes 31-34)
-    uint32 decodedNonce = (uint32(uint8(encoded[31])) << 24) |
-      (uint32(uint8(encoded[32])) << 16) |
-      (uint32(uint8(encoded[33])) << 8) |
-      uint32(uint8(encoded[34]));
-    assertEq(decodedNonce, nonce);
-
-    // Verify deadline (bytes 35-38)
-    uint32 decodedDeadline = (uint32(uint8(encoded[35])) << 24) |
-      (uint32(uint8(encoded[36])) << 16) |
-      (uint32(uint8(encoded[37])) << 8) |
-      uint32(uint8(encoded[38]));
-    assertEq(decodedDeadline, deadline);
-  }
-
-  function test_encodeReportData_CorrectFormat() public pure {
-    bytes32 txHash = keccak256('testTx');
-    uint256 blockHeight = 800000;
-    bytes memory opReturnData = abi.encodePacked(TEST_FUNCTION_SELECTOR);
-
-    bytes memory reportData = BMCPTestHelpers.encodeReportData(
-      txHash,
-      blockHeight,
-      opReturnData
-    );
-
-    // Verify total length: 32 (txHash) + 32 (blockHeight) + opReturnData.length
-    assertEq(reportData.length, 64 + opReturnData.length);
-
-    // Verify btcTxHash (first 32 bytes)
-    bytes32 decodedTxHash;
-    assembly {
-      decodedTxHash := mload(add(reportData, 32))
-    }
-    assertEq(decodedTxHash, txHash);
-
-    // Verify btcBlockHeight (next 32 bytes)
-    bytes32 decodedBlockHeight;
-    assembly {
-      decodedBlockHeight := mload(add(reportData, 64))
-    }
-    assertEq(uint256(decodedBlockHeight), blockHeight);
-  }
-
-  function test_generateUniqueTxHash_ProducesDifferentHashes() public pure {
-    bytes32 hash1 = BMCPTestHelpers.generateUniqueTxHash(1);
-    bytes32 hash2 = BMCPTestHelpers.generateUniqueTxHash(2);
-
-    // Verify hashes are different
-    assert(hash1 != hash2);
+    return metadata;
   }
 }

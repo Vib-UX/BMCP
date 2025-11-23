@@ -7,8 +7,6 @@ pragma solidity ^0.8.28;
  * @dev Provides functions to construct valid BMCP commands matching the BitcoinCREReceiver schema
  */
 library BMCPTestHelpers {
-  // Protocol constants matching BitcoinCREReceiver
-  uint32 public constant PROTOCOL_MAGIC = 0x424D4350; // "BMCP"
   uint8 public constant SUPPORTED_VERSION = 1;
 
   /**
@@ -40,19 +38,13 @@ library BMCPTestHelpers {
   ) internal pure returns (bytes memory) {
     uint16 dataLength = uint16(callData.length);
 
-    // Calculate total size
-    uint256 totalSize = 4 + 1 + 20 + 2 + callData.length; // magic + version + contract + length + data
+    // Calculate total size: version (1) + contract (20) + length (2) + data + nonce (4) + deadline (4)
+    uint256 totalSize = 1 + 20 + 2 + callData.length;
     if (nonce > 0) totalSize += 4;
     if (deadline > 0) totalSize += 4;
 
     bytes memory encoded = new bytes(totalSize);
     uint256 offset = 0;
-
-    // Protocol Magic (4 bytes)
-    bytes4 magicBytes = bytes4(PROTOCOL_MAGIC);
-    for (uint256 i = 0; i < 4; i++) {
-      encoded[offset++] = magicBytes[i];
-    }
 
     // Version (1 byte)
     encoded[offset++] = bytes1(SUPPORTED_VERSION);
