@@ -278,7 +278,10 @@ app.post('/broadcast', async (req: Request, res: Response) => {
     const finalized = psbt.finalizeAllInputs();
     const tx = finalized.extractTransaction()
     const txHex = tx.toHex()
-    const txHash = await axios.post(`https://bitcoin-testnet4.gateway.tatum.io/`, {
+    console.log('📡 Broadcasting transaction...');
+    console.log('TX Hex length:', txHex.length);
+    
+    const broadcastResponse = await axios.post(`https://bitcoin-testnet4.gateway.tatum.io/`, {
       "jsonrpc": "2.0",
       "method": "sendrawtransaction",
       "params": [
@@ -291,20 +294,49 @@ app.post('/broadcast', async (req: Request, res: Response) => {
         'Accept': 'application/json',
         'x-api-key': TATUM_API_KEY
       }
-    }).then(response => response.data.result as string);
-    await delay(1100) // wait 1.1s
-    const rawTx = await getTx(txHash)
-    if (!rawTx) {
-      throw Error('Could not get raw tx')
-    }
-    const opReturnData = parseOpReturnData(rawTx)
-    opReturnCache.set(txHash, opReturnData)
-    return res.status(200).send({
-      success: true,
-      message: `Broadcasted transaction`,
-      ...opReturnData,
-      link: `https://mempool.space/testnet4/tx/preview#tx=${txHex}`
     });
+    
+    console.log('📥 Tatum response:', JSON.stringify(broadcastResponse.data, null, 2));
+    
+    // Check for RPC error
+    if (broadcastResponse.data.error) {
+      console.error('❌ Tatum RPC error:', broadcastResponse.data.error);
+      throw new Error(`Bitcoin RPC error: ${broadcastResponse.data.error.message}`);
+    }
+    
+    const txHash = broadcastResponse.data.result as string;
+    
+    if (!txHash) {
+      console.error('❌ No txHash in response:', broadcastResponse.data);
+      throw new Error('Transaction broadcast failed: no txHash returned');
+    }
+    
+    console.log('✅ Transaction broadcast:', txHash);
+    
+    // Return success immediately
+    const response = {
+      success: true,
+      message: `Transaction broadcast successfully`,
+      txHash: txHash,
+      link: `https://mempool.space/testnet4/tx/${txHash}`
+    };
+    
+    // Try to fetch and cache OP_RETURN data in background (don't block response)
+    (async () => {
+      try {
+        await delay(2000); // wait 2s for tx to be indexed
+        const rawTx = await getTx(txHash);
+        if (rawTx) {
+          const opReturnData = parseOpReturnData(rawTx);
+          opReturnCache.set(txHash, opReturnData);
+          console.log('✅ OP_RETURN data cached for', txHash);
+        }
+      } catch (err) {
+        console.log('⚠️  Could not cache OP_RETURN data for', txHash);
+      }
+    })();
+    
+    return res.status(200).send(response);
   } catch (error) {
     const casted = error as Partial<AxiosError>;
     if (casted?.response) {

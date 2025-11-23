@@ -7,6 +7,21 @@ export default defineConfig({
   server: {
     port: 8080,
     open: true
+  },
+  define: {
+    'global': 'globalThis',
+  },
+  resolve: {
+    alias: {
+      'buffer': 'buffer/',
+    }
+  },
+  optimizeDeps: {
+    esbuildOptions: {
+      define: {
+        global: 'globalThis'
+      }
+    }
   }
 })
 
