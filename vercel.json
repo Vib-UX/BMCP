@@ -1,6 +1,6 @@
 {
   "framework": null,
-  "buildCommand": "npm run build:sdk && npm run build:dashboard",
+  "buildCommand": "npm run build:sdk && npm run build:dashboard && ls -la dist/ && echo 'Build output verified'",
   "outputDirectory": "dist",
   "installCommand": "npm install"
 }
