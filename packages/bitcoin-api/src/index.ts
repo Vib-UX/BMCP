@@ -89,7 +89,7 @@ app.post('/psbt', async (req: Request, res: Response) => {
       // Prepend protocol magic
       fullData = Buffer.concat([BMCP_PROTOCOL_MAGIC, payloadBuffer]);
     }
-    const utxos = await axios
+    const allUtxos = await axios
       .get(`https://mempool.space/testnet4/api/address/${address}/utxo`)
       .then(
         (response) =>
@@ -97,12 +97,24 @@ app.post('/psbt', async (req: Request, res: Response) => {
             txid: string;
             vout: number;
             value: number;
+            status: {
+              confirmed: boolean;
+              block_height?: number;
+            };
           }>
       );
+    
+    // Only use confirmed UTXOs to avoid "inputs-missingorspent" errors
+    const utxos = allUtxos.filter(utxo => utxo.status.confirmed);
+    
+    console.log(`📊 UTXOs: ${allUtxos.length} total, ${utxos.length} confirmed`);
+    
     if (!utxos.length) {
       return res.status(404).send({
-        success: true,
-        message: 'No UTXOs found',
+        success: false,
+        message: allUtxos.length > 0 
+          ? `Found ${allUtxos.length} UTXOs but none are confirmed yet. Please wait for confirmation.`
+          : 'No UTXOs found. Please fund your wallet.',
         psbt: null,
       });
     }
@@ -124,7 +136,10 @@ app.post('/psbt', async (req: Request, res: Response) => {
       );
     }
     const psbt = new bitcoin.Psbt({ network });
+    
+    console.log(`💰 Using ${utxos.length} confirmed UTXOs:`);
     for (const utxo of utxos) {
+      console.log(`  - ${utxo.txid.slice(0, 8)}...${utxo.txid.slice(-8)}:${utxo.vout} (${utxo.value} sats)`);
       psbt.addInput({
         hash: utxo.txid,
         index: utxo.vout,

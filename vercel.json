@@ -4,4 +4,3 @@
   "outputDirectory": "packages/dashboard/dist",
   "installCommand": "npm install"
 }
-
