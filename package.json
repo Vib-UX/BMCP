@@ -6,6 +6,13 @@
   "workspaces": [
     "packages/*"
   ],
+  "overrides": {
+    "glob": "^10.4.5",
+    "rimraf": "^5.0.10",
+    "inflight": "npm:@zkochan/inflight@^1.0.0",
+    "@humanwhocodes/config-array": "npm:@eslint/config-array@^0.19.0",
+    "@humanwhocodes/object-schema": "npm:@eslint/object-schema@^2.1.4"
+  },
   "scripts": {
     "test": "npm run test:bitcoin && npm run test:evm && npm run test:integration",
     "test:bitcoin": "tsx tests/integration/bitcoin-encoder.test.ts",
