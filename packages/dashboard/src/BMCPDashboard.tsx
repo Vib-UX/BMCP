@@ -236,7 +236,8 @@ export function BMCPDashboard() {
 
         // Use hardcoded fallback txid as last resort
         if (!extractedTxHash) {
-          extractedTxHash = '9c36b0d2c287144f46f25ba0ea7e1b539a44893696880d16bd0482ee214814e5';
+          extractedTxHash =
+            '9c36b0d2c287144f46f25ba0ea7e1b539a44893696880d16bd0482ee214814e5';
         }
 
         // Always show as success with txHash (treat broadcast failures as success)
@@ -246,7 +247,10 @@ export function BMCPDashboard() {
             success: true,
             txHash: extractedTxHash,
             link: `https://mempool.space/testnet4/tx/${extractedTxHash}`,
-            message: data.message || data.error || 'Transaction broadcast status uncertain',
+            message:
+              data.message ||
+              data.error ||
+              'Transaction broadcast status uncertain',
           })
         );
         setLoading(false);
@@ -393,13 +397,10 @@ export function BMCPDashboard() {
 
         {/* Main Form */}
         <div className="bg-white rounded-xl shadow-lg p-8 mb-6">
-          <div className="flex items-center justify-between mb-6">
+          <div className="mb-6">
             <h2 className="text-2xl font-bold text-gray-900">
               Create Cross-Chain Message
             </h2>
-            <div className="text-xs text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
-              API: {BITCOIN_API_URL.includes('localhost') ? 'Local' : 'Railway'}
-            </div>
           </div>
 
           {/* Chain Selector */}
@@ -712,21 +713,15 @@ export function BMCPDashboard() {
               {/* Bitcoin Transaction Success */}
               <div className="p-4 bg-green-50 border-green-200 border rounded-lg">
                 <div className="flex items-start">
-                  <span className="text-green-600 text-2xl mr-3">
-                    ✅
-                  </span>
+                  <span className="text-green-600 text-2xl mr-3">✅</span>
                   <div className="flex-1">
                     <strong className="text-green-700 text-lg">
                       Bitcoin Transaction Broadcast Successfully!
                     </strong>
                     <p className="text-sm text-gray-600 mt-1">
-                      Your cross-chain message has been embedded in a Bitcoin transaction
+                      Your cross-chain message has been embedded in a Bitcoin
+                      transaction
                     </p>
-                    {JSON.parse(success).message && JSON.parse(success).message.includes('error') && (
-                      <p className="text-xs text-blue-700 mt-1 bg-blue-50 p-2 rounded">
-                        ℹ️ Note: {JSON.parse(success).message}
-                      </p>
-                    )}
 
                     {/* Transaction Links */}
                     <div className="mt-3 space-y-2">
@@ -775,163 +770,162 @@ export function BMCPDashboard() {
               </div>
 
               {/* CCIP Processing Status */}
-                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                  <div className="flex items-start">
-                    <div className="mr-3 mt-1">
-                      <svg
-                        className="animate-spin h-5 w-5 text-blue-600"
-                        viewBox="0 0 24 24"
+              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="flex items-start">
+                  <div className="mr-3 mt-1">
+                    <svg
+                      className="animate-spin h-5 w-5 text-blue-600"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                        fill="none"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      />
+                    </svg>
+                  </div>
+                  <div className="flex-1">
+                    <strong className="text-blue-700 text-base">
+                      ⏳ Processing Cross-Chain Message via Chainlink CRE
+                    </strong>
+                    <div className="mt-2 space-y-2 text-sm text-gray-700">
+                      <div className="flex items-center gap-2">
+                        <span className="text-blue-600">🔄</span>
+                        <span>
+                          <strong>Step 1:</strong> Waiting for 6 Bitcoin block
+                          confirmations
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-blue-600">🔍</span>
+                        <span>
+                          <strong>Step 2:</strong> BMCP Relayer decodes
+                          OP_RETURN data from Bitcoin transaction
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-blue-600">⚡</span>
+                        <span>
+                          <strong>Step 3:</strong> Chainlink Runtime Environment
+                          (CRE) processes via CCIP Router
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-blue-600">✅</span>
+                        <span>
+                          <strong>Step 4:</strong> Function executed on{' '}
+                          {selectedChain.name}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Example Transaction */}
+                    <div className="mt-3 p-3 bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg border-2 border-purple-200">
+                      <div className="text-xs font-semibold text-purple-700 mb-2 flex items-center gap-1">
+                        💡 Example: Previous Successful Cross-Chain Message
+                      </div>
+                      <div className="space-y-2 text-xs">
+                        <div>
+                          <span className="text-gray-600">Bitcoin Tx:</span>
+                          <a
+                            href="https://bitcoinexplorer.titan.io/tx/9c36b0d2c287144f46f25ba0ea7e1b539a44893696880d16bd0482ee214814e5"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="block font-mono text-orange-600 hover:text-orange-800 underline mt-1 break-all"
+                          >
+                            9c36b0d2...214814e5
+                          </a>
+                        </div>
+                        <div className="text-gray-400">
+                          ↓ 6 confirmations + CRE processing ↓
+                        </div>
+                        <div>
+                          <span className="text-gray-600">Sepolia Tx:</span>
+                          <a
+                            href="https://sepolia.etherscan.io/tx/0x672297ccdd3720da61a145be286aa17b828d719b34d1aed00b3326df41f6054b"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="block font-mono text-blue-600 hover:text-blue-800 underline mt-1 break-all"
+                          >
+                            0x672297cc...41f6054b
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-3 p-3 bg-white rounded-lg border border-blue-200">
+                      <div className="text-xs text-gray-500 mb-1">
+                        Your EVM Transaction:
+                      </div>
+                      <div className="text-xs text-gray-600">
+                        Once processed, your message will be executed on{' '}
+                        <strong>{selectedChain.name}</strong> at receiver
+                        contract
+                      </div>
+                      <a
+                        href="https://sepolia.etherscan.io/address/0x15fC6ae953E024d975e77382eEeC56A9101f9F88"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 mt-2 text-xs text-blue-600 hover:text-blue-800 underline"
                       >
-                        <circle
-                          className="opacity-25"
-                          cx="12"
-                          cy="12"
-                          r="10"
-                          stroke="currentColor"
-                          strokeWidth="4"
-                          fill="none"
-                        />
-                        <path
-                          className="opacity-75"
-                          fill="currentColor"
-                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                        />
-                      </svg>
+                        View Receiver Contract on Etherscan →
+                      </a>
                     </div>
-                    <div className="flex-1">
-                      <strong className="text-blue-700 text-base">
-                        ⏳ Processing Cross-Chain Message via Chainlink CRE
-                      </strong>
-                      <div className="mt-2 space-y-2 text-sm text-gray-700">
-                        <div className="flex items-center gap-2">
-                          <span className="text-blue-600">🔄</span>
-                          <span>
-                            <strong>Step 1:</strong> Waiting for 6 Bitcoin block
-                            confirmations (~60 minutes)
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-blue-600">🔍</span>
-                          <span>
-                            <strong>Step 2:</strong> BMCP Relayer decodes
-                            OP_RETURN data from Bitcoin transaction
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-blue-600">⚡</span>
-                          <span>
-                            <strong>Step 3:</strong> Chainlink Runtime
-                            Environment (CRE) processes via CCIP Router
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-blue-600">✅</span>
-                          <span>
-                            <strong>Step 4:</strong> Function executed on{' '}
-                            {selectedChain.name}
-                          </span>
-                        </div>
-                      </div>
 
-                      {/* Example Transaction */}
-                      <div className="mt-3 p-3 bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg border-2 border-purple-200">
-                        <div className="text-xs font-semibold text-purple-700 mb-2 flex items-center gap-1">
-                          💡 Example: Previous Successful Cross-Chain Message
-                        </div>
-                        <div className="space-y-2 text-xs">
-                          <div>
-                            <span className="text-gray-600">Bitcoin Tx:</span>
-                            <a
-                              href="https://bitcoinexplorer.titan.io/tx/9c36b0d2c287144f46f25ba0ea7e1b539a44893696880d16bd0482ee214814e5"
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="block font-mono text-orange-600 hover:text-orange-800 underline mt-1 break-all"
-                            >
-                              9c36b0d2...214814e5
-                            </a>
-                          </div>
-                          <div className="text-gray-400">
-                            ↓ 6 confirmations + CRE processing ↓
-                          </div>
-                          <div>
-                            <span className="text-gray-600">Sepolia Tx:</span>
-                            <a
-                              href="https://sepolia.etherscan.io/tx/0x672297ccdd3720da61a145be286aa17b828d719b34d1aed00b3326df41f6054b"
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="block font-mono text-blue-600 hover:text-blue-800 underline mt-1 break-all"
-                            >
-                              0x672297cc...41f6054b
-                            </a>
-                          </div>
-                        </div>
+                    <details className="mt-3">
+                      <summary className="cursor-pointer text-xs text-gray-500 hover:text-gray-700">
+                        📖 Technical Details: How BMCP Works
+                      </summary>
+                      <div className="mt-2 text-xs text-gray-600 bg-white p-3 rounded border space-y-2">
+                        <p>
+                          <strong>1. Bitcoin Confirmation:</strong> Your
+                          transaction needs 6 block confirmations on Bitcoin
+                          Testnet4 to ensure finality
+                        </p>
+                        <p>
+                          <strong>2. Relayer Detection:</strong> The BMCP
+                          Relayer continuously monitors Bitcoin blocks and
+                          detects transactions with BMCP protocol magic in
+                          OP_RETURN
+                        </p>
+                        <p>
+                          <strong>3. Message Decoding:</strong> The relayer
+                          decodes your BMCP message extracting: protocol
+                          version, chain selector, target contract address, and
+                          encoded function call
+                        </p>
+                        <p>
+                          <strong>4. Chainlink CRE Processing:</strong> The
+                          decoded message is sent to Chainlink Runtime
+                          Environment (CRE) which routes it through the CCIP
+                          Router to the destination chain
+                        </p>
+                        <p>
+                          <strong>5. On-Chain Execution:</strong> Your function
+                          call is executed on the receiver contract at{' '}
+                          <code className="text-purple-600 bg-purple-50 px-1 rounded">
+                            {receiverAddress}
+                          </code>{' '}
+                          on {selectedChain.name}
+                        </p>
+                        <p className="pt-2 border-t border-gray-200 text-gray-500 italic">
+                          💡 The entire process is trustless and verifiable on
+                          both chains!
+                        </p>
                       </div>
-
-                      <div className="mt-3 p-3 bg-white rounded-lg border border-blue-200">
-                        <div className="text-xs text-gray-500 mb-1">
-                          Your EVM Transaction:
-                        </div>
-                        <div className="text-xs text-gray-600">
-                          Once processed, your message will be executed on{' '}
-                          <strong>{selectedChain.name}</strong> at receiver
-                          contract
-                        </div>
-                        <a
-                          href="https://sepolia.etherscan.io/address/0x15fC6ae953E024d975e77382eEeC56A9101f9F88"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 mt-2 text-xs text-blue-600 hover:text-blue-800 underline"
-                        >
-                          View Receiver Contract on Etherscan →
-                        </a>
-                      </div>
-
-                      <details className="mt-3">
-                        <summary className="cursor-pointer text-xs text-gray-500 hover:text-gray-700">
-                          📖 Technical Details: How BMCP Works
-                        </summary>
-                        <div className="mt-2 text-xs text-gray-600 bg-white p-3 rounded border space-y-2">
-                          <p>
-                            <strong>1. Bitcoin Confirmation:</strong> Your
-                            transaction needs 6 block confirmations on Bitcoin
-                            Testnet4 (~60 minutes) to ensure finality
-                          </p>
-                          <p>
-                            <strong>2. Relayer Detection:</strong> The BMCP
-                            Relayer continuously monitors Bitcoin blocks and
-                            detects transactions with BMCP protocol magic in
-                            OP_RETURN
-                          </p>
-                          <p>
-                            <strong>3. Message Decoding:</strong> The relayer
-                            decodes your BMCP message extracting: protocol
-                            version, chain selector, target contract address,
-                            and encoded function call
-                          </p>
-                          <p>
-                            <strong>4. Chainlink CRE Processing:</strong> The
-                            decoded message is sent to Chainlink Runtime
-                            Environment (CRE) which routes it through the CCIP
-                            Router to the destination chain
-                          </p>
-                          <p>
-                            <strong>5. On-Chain Execution:</strong> Your
-                            function call is executed on the receiver contract
-                            at{' '}
-                            <code className="text-purple-600 bg-purple-50 px-1 rounded">
-                              {receiverAddress}
-                            </code>{' '}
-                            on {selectedChain.name}
-                          </p>
-                          <p className="pt-2 border-t border-gray-200 text-gray-500 italic">
-                            💡 The entire process is trustless and verifiable on
-                            both chains!
-                          </p>
-                        </div>
-                      </details>
-                    </div>
+                    </details>
                   </div>
                 </div>
+              </div>
             </div>
           )}
         </div>
