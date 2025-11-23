@@ -12,30 +12,33 @@ contract UniswapV3Example is OwnedByBMCP {
 
   ISwapRouter public immutable swapRouter;
 
-  address public immutable usdt;
-  address public immutable wbtc;
+  address public immutable usdc;
+  address public immutable weth;
 
   constructor(
     address _bmcpReceiver,
     ISwapRouter _swapRouter,
-    address _usdt,
-    address _wbtc
+    address _usdc,
+    address _weth
   ) OwnedByBMCP(_bmcpReceiver) {
     swapRouter = _swapRouter;
-    usdt = _usdt;
-    wbtc = _wbtc;
+    usdc = _usdc;
+    weth = _weth;
+
+    IERC20(usdc).approve(address(swapRouter), type(uint256).max);
+    IERC20(weth).approve(address(swapRouter), type(uint256).max);
   }
 
-  function swapUSDTforWBTC(
+  function swapUSDCforWETH(
     uint256 amountIn
-  ) external onlyBMCP returns (uint256 amountOut) {
-    return _swapSingle(usdt, wbtc, 3000, amountIn);
+  ) external returns (uint256 amountOut) {
+    return _swapSingle(usdc, weth, 3000, amountIn);
   }
 
-  function swapWBTCforUSDT(
+  function swapWETHforUSDC(
     uint256 amountIn
-  ) external onlyBMCP returns (uint256 amountOut) {
-    return _swapSingle(wbtc, usdt, 3000, amountIn);
+  ) external returns (uint256 amountOut) {
+    return _swapSingle(weth, usdc, 3000, amountIn);
   }
 
   function _swapSingle(
@@ -44,8 +47,6 @@ contract UniswapV3Example is OwnedByBMCP {
     uint24 fee,
     uint256 amountIn
   ) internal returns (uint256 amountOut) {
-    IERC20(tokenIn).forceApprove(address(swapRouter), amountIn);
-
     uint256 minOut = /* Calculate min output */ 0;
     uint160 priceLimit = /* Calculate price limit */ 0;
 
@@ -54,7 +55,7 @@ contract UniswapV3Example is OwnedByBMCP {
         tokenIn: tokenIn,
         tokenOut: tokenOut,
         fee: fee,
-        recipient: msg.sender,
+        recipient: address(this),
         deadline: block.timestamp,
         amountIn: amountIn,
         amountOutMinimum: minOut,
