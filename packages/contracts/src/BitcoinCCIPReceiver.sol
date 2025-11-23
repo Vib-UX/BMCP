@@ -16,7 +16,7 @@ contract BitcoinCREReceiver is IReceiverTemplate {
 
   mapping(bytes32 => bool) public executedBtcTxs;
   mapping(address => mapping(uint32 => bool)) public usedNonces;
-  mapping(address => bool) public authorizedContracts;
+  // mapping(address => bool) public authorizedContracts;
 
   struct BMCPCommand {
     uint32 protocolMagic;
@@ -62,7 +62,7 @@ contract BitcoinCREReceiver is IReceiverTemplate {
     address contract_,
     bool authorized
   ) external onlyOwner {
-    authorizedContracts[contract_] = authorized;
+    // authorizedContracts[contract_] = authorized;
   }
 
   function _processReport(bytes calldata report) internal override {
