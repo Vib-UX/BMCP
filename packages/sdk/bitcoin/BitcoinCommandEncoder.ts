@@ -295,6 +295,9 @@ export class BitcoinCommandEncoder {
     };
   }
 
+  static dumbBMCPMessage(): boolean {
+    return true;
+  }
   /**
    * Check if buffer starts with BMCP protocol magic
    */

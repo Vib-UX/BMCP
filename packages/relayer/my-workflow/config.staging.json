@@ -28,5 +28,9 @@
     "https://ethereum-sepolia.publicnode.com",
     "https://ethereum-sepolia.publicnode.com",
     "https://ethereum-sepolia.publicnode.com"
-  ]
+  ],
+  "bitcoinRpc": {
+    "url": "https://bitcoin-testnet4.gateway.tatum.io/",
+    "apiKey": "t-6921f4822a9f4bf66c8503de-193fc72573c14dd49eb02ae0"
+  }
 }

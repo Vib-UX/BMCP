@@ -3,26 +3,46 @@
  * Shows how to decode BMCP messages using Bitcoin API calls
  */
 
-import axios from 'axios';
-import { config } from 'dotenv';
 import { BitcoinCommandEncoder } from '../packages/sdk/bitcoin';
 import { EVMCommandEncoder } from '../packages/sdk/evm';
 
-// Load environment variables
-config();
+// Only load environment variables and validate when running directly (not when imported)
+let TATUM_API_KEY: string | undefined;
+let TATUM_RPC_URL: string;
 
-const TATUM_API_KEY = process.env.TATUM_API_KEY;
-const TATUM_RPC_URL = process.env.TATUM_RPC_URL || 'https://bitcoin-testnet4.gateway.tatum.io/';
+// Check if we're in a Node.js environment and can safely use dotenv/process
+const isNodeEnv = typeof process !== 'undefined' && typeof process.exit === 'function';
+const isDirectExecution = isNodeEnv && process.argv && process.argv.length > 0;
 
-if (!TATUM_API_KEY) {
-  console.error('❌ Error: TATUM_API_KEY not found in environment variables');
-  console.error('Please create a .env file with your Tatum API key');
-  console.error('See .env.example for reference');
-  process.exit(1);
+if (isDirectExecution) {
+  try {
+    // Try to load dotenv, but don't fail if it's not available (e.g., in WASM)
+    const dotenv = require('dotenv');
+    if (dotenv && dotenv.config) {
+      dotenv.config();
+    }
+    TATUM_API_KEY = process.env.TATUM_API_KEY;
+    TATUM_RPC_URL = process.env.TATUM_RPC_URL || 'https://bitcoin-testnet4.gateway.tatum.io/';
+
+    if (!TATUM_API_KEY) {
+      console.error('❌ Error: TATUM_API_KEY not found in environment variables');
+      console.error('Please create a .env file with your Tatum API key');
+      console.error('See .env.example for reference');
+      process.exit(1);
+    }
+  } catch (e) {
+    // If dotenv/config fails (e.g., in WASM), just set defaults
+    TATUM_API_KEY = undefined;
+    TATUM_RPC_URL = 'https://bitcoin-testnet4.gateway.tatum.io/';
+  }
+} else {
+  // When imported (e.g., in WASM), set defaults (won't be used by exported functions)
+  TATUM_API_KEY = undefined;
+  TATUM_RPC_URL = 'https://bitcoin-testnet4.gateway.tatum.io/';
 }
 
 // Bitcoin RPC Types
-interface BitcoinTransaction {
+export interface BitcoinTransaction {
   txid: string;
   hash: string;
   version: number;
@@ -55,6 +75,9 @@ interface BitcoinOutput {
  * Call Bitcoin RPC method
  */
 async function bitcoinRPC(method: string, params: any[]): Promise<any> {
+  // Lazy import axios only when this function is called
+  const axios = (await import('axios')).default;
+  
   const response = await axios.post(
     TATUM_RPC_URL,
     {
@@ -267,7 +290,7 @@ function decodeBMCPMessage(opReturnData: Buffer) {
 /**
  * STEP 5: Decode function call from calldata
  */
-function decodeFunctionCall(calldata: string) {
+export function decodeFunctionCall(calldata: string) {
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   console.log('STEP 5: Function Call Decoding - Extract Parameters');
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
@@ -452,8 +475,25 @@ async function processBitcoinTransaction(txid: string) {
 
 // Example: Process a transaction with BMCP message
 // This would be a real TXID from your Bitcoin transaction
-const exampleTxid =
-  process.argv[2] ||
-  'c3c7add2097d94a01116de65f14a9fed765ec25594da1c8715e55b53ae760064';
+// Only run when executed directly (not when imported)
+if (isDirectExecution) {
+  try {
+    const exampleTxid =
+      process.argv[2] ||
+      'c3c7add2097d94a01116de65f14a9fed765ec25594da1c8715e55b53ae760064';
 
-processBitcoinTransaction(exampleTxid);
+    processBitcoinTransaction(exampleTxid);
+  } catch (e) {
+    // Silently fail if running in non-Node environment
+  }
+}
+
+
+
+export { 
+  getTransaction,
+  extractOPReturns,
+  checkBMCPMagic,
+  decodeBMCPMessage,
+  validateForExecution
+}
