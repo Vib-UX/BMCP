@@ -19,6 +19,8 @@ app.use(express.urlencoded({ extended: true }));
 // BMCP Protocol Magic: "BMCP" in hex = 0x424D4350
 const BMCP_PROTOCOL_MAGIC = Buffer.from([0x42, 0x4d, 0x43, 0x50]); // "BMCP"
 
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 const varintSize = (n: number) => {
   if (n < 0xfd) return 1;
   if (n <= 0xffff) return 3;
